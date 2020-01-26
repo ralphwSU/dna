@@ -1,0 +1,48 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+
+
+% Specify the margins and text size.
+\usepackage{amsmath}
+\setlength{\textwidth}{6.4in}
+\setlength{\textheight}{9.0in}
+\setlength{\oddsidemargin}{0pt}
+\setlength{\evensidemargin}{0pt}
+\setlength{\topmargin}{0pt}
+\setlength{\hoffset}{.05in}
+\setlength{\voffset}{-.5in}
+
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{graphicx}     % actually, this is loaded by pstricks
+\usepackage[T1]{fontenc}
+\usepackage{ifthen}
+\usepackage{pstricks,pst-grad,pst-text,pst-node,pst-func,pst-plot}
+\usepackage{float}
+
+
+% The hyperref package inserts links into the pdf.
+\definecolor{MyLinkColor}{rgb}{.1,.2,1}
+\definecolor{MyCiteColor}{rgb}{.1,1,.2}
+\definecolor{MyURLColor}{rgb}{.4,.4,.4}
+\usepackage[backref=true,pagebackref=false,hyperindex,colorlinks=true,
+  linkcolor=MyLinkColor,urlcolor=MyURLColor]{hyperref}
+\begin{document}
+
+\lstset{language=Python, basicstyle=\scriptsize, numbers=left, numberstyle=\tiny, commentstyle=\color{blue}, xleftmargin=22pt, frame=single}
+
+%\lstinputlisting[breaklines=true]{genelink.py}
+\lstinputlisting[breaklines=true]{../pyprog/genelink.py}
+
+
+
+
+
+
+\vfill
+\eject
+\end{document}
