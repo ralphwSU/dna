@@ -1,3 +1,6 @@
+# GeneLink test code.
+
+dataDir = "../data"
 
 # Aminio acid code letter to name
 def a2n(a = 'F'):
@@ -44,6 +47,7 @@ def a2n(a = 'F'):
    elif a == 'G':
       return "glycine"
 
+# Transform a codon to an amino acid code letter.  Return '' for stop codons.
 def c2a(c = 'TTT'):
     if c in ['TTT', 'TTC']:
         return 'F'
@@ -89,10 +93,55 @@ def c2a(c = 'TTT'):
         return ''
     elif c in ['TGA']:           # Stop
         return ''
-      
-def seq2c():
-    amino_acids = []
-    # read 3 characters at a time.
-    # while c not = 'ATG', continue.
-    # amino_acids.append(c2a(c))
+
+     
+# Transform a DNA sequence into a sequence of amino acids.
+# Ignore base pairs that are not between start and stop codons.
+def seq2c(seq, verbose = False):
+    WAITING_FOR_START   = 0
+    READING_AMINO_ACIDS = 1
+    n = len(seq)
+    if n < 9:
+       return
+    amino_acids = ''
+    triple      = ''
+    state       = WAITING_FOR_START
+    start_index = 0
+    i           = 0
+    while i < len(seq):
+       #print (i, state, triple)
+       if state == WAITING_FOR_START:
+          triple = seq[i:(i+3)]       # read three base pairs
+          if triple == 'ATG':
+             start_index = i             
+             i = i + 3
+             state = READING_AMINO_ACIDS
+          else:
+             i = i + 1
+       elif state == READING_AMINO_ACIDS:
+          codon = seq[i:(i+3)]
+          aa = c2a(codon)
+          i = i + 3
+          if len(aa) > 0:
+             amino_acids = amino_acids + aa
+          else:                       # read a stop
+             if (verbose):
+                print ("Start/Stop: ", start_index, i-3)
+             state = WAITING_FOR_START
     return amino_acids
+
+
+
+
+# Read a DNA sequence from a FASTA formatted file.  The first
+# line must be a comment line as it is ignored.
+def readseq(filename):
+   path = dataDir + "/" + filename
+   seq = ""
+   f = open(path, 'r')
+   line = f.readline()
+   for line in f:
+      seq = seq + line.rstrip()
+   f.close()
+   return seq
+         
