@@ -408,7 +408,7 @@ def readAll(fileList = []):
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
+#from sklearn.cluster import KMeans
 
 # Apply k-means clustering baded on a specified feature list.
 # [incomplete]

@@ -1,4 +1,6 @@
 import math
+import genelink as g
+
 # width  = width of image in cm
 # height = height of image in cm
 # d      = dimension of square
@@ -60,6 +62,7 @@ def s2t(sequence, filename, width_cm, d_mm):
 def F(x):
     return '{0:0.5f}'.format(x)
 
+# Convert gene sequence to a postscript file
 def s2ps(sequence, sequenceName, filename, width_cm, d_mm, colorfile = "colors.txt", fontsize = 16):
     # Read colors
     black = "0.0  0.0  0.0"
@@ -248,7 +251,8 @@ def readColorFile(filename):
         setcolor[parts[0]] = parts[1] + "  " +  parts[2] + "  " +  parts[3] + "  setrgbcolor\n"
     f.close()
     return setcolor
-    
+
+# Compute the paper size in points from the name of the paper size
 def paper2pt(paper = "Letter"):
     if paper == "Comm_10_Envelope":
        return [297, 684]
@@ -312,51 +316,115 @@ def paper2pt(paper = "Letter"):
         return [91, 127]
 
 
+# Convert points to mm.    
 def pt2mm(pt):
-    return pt * 0.352778
+    return pt * 0.
 
-def s2ps2(
-        sequenceData,                  # dictionary {"sequence":<string>, "name":<name of organism>}
-        filename,                       # name of the file to write (e.g., "myseq.ps")
+def ps(
+        fastafile,
         colorfile       = "colors.txt",
           
         paper           = "Letter",     # Type of paper (used to determine paper size)
+        figure_width_cm = 13.0,         # Width of the genome plot.
+        top_margin_cm   = 1.5,          # Width of the top margin on each page.
+        legend_width_cm = 3.2,          # Width of the bottom color legend        
         d_mm            = 1.0,          # Size in mm of the squares
 
-        nameFontsize    = 16,
+        nameFontSize    = 16,
 
         nonCoding       = False,        # If True then noncoding regions are colored differently
-        legend_width_cm = 3.2,          # Width of the bottom color legend
+
         frameboxes      = 2,            # number of frames to put around the graphic
         gap_mm          = 1.0,          # size of gap to put between frames
         framestroke     = 0.5           # stroke width of the frames
         ):
 
-        seq      = sequence['sequence']
-        name     = sequence['name']
-        setcolor = readColorFile(colorfile)
+   s = g.readseq2(fastafile)
 
-        f = open(filename + ".ps", 'w')
-        paper_width_pt, paper_height_pt = paper2pt(paper)
-        paper_width_mm  = pt2mm(paper_width_pt)
-        paper_height_mm = pt2mm(paper_height_pt)
+   filename = s['name'] + ".ps"
+   
+   s2ps2(s,
+         filename,
+         colorfile,
+         paper,
+         figure_width_cm,
+         top_margin_cm,
+         legend_width_cm,
+         d_mm,
+         nameFontSize,
+         nonCoding,
+         frameboxes,
+         gap_mm,
+         framestroke)
+   
+# Convert a genome to a postscript file
+def s2ps2(
+        sequenceData,                   # dictionary {"sequence":<string>, "name":<name of organism>}
+        filename,                       # name of the file to write (e.g., "myseq.ps")
+        colorfile       = "colors.txt",
+          
+        paper           = "Letter",     # Type of paper (used to determine paper size)
+        figure_width_cm = 13.0,         # Width of the genome plot.
+        top_margin_cm   = 1.5,          # Width of the top margin on each page.
+        legend_width_cm = 3.2,          # Width of the bottom color legend        
+        d_mm            = 1.0,          # Size in mm of the squares
 
-        width_mm = paper_width_mm - 2 * left_margin_mm
-        height_mm = paper_height_mm - 2*top_margin_mm
+        nameFontSize    = 16,
 
-        cols = math.floor(width_mm / d_mm)
-        rows = math.ceil(len(sequence) / cols)
-        last_row      = len(sequence) - rows * cols
+        nonCoding       = False,        # If True then noncoding regions are colored differently
 
-        rows_per_page = math.floor(height_mm / d_mm)
-        pages         = len(seq) / rows_per_page
-        
+        frameboxes      = 2,            # number of frames to put around the graphic
+        gap_mm          = 1.0,          # size of gap to put between frames
+        framestroke     = 0.5           # stroke width of the frames
+        ):
+
+    # First set a default color then read the color file.
+    black = "0.0  0.0  0.0"
+    setcolor = {'A':black, 'C':black, 'G':black, 'T':black, 'a':black, 'c':black, 'g':black, 't':black}
+    f = open(colorfile, 'r')    
+    lines = f.readlines()    
+    for line in lines:
+        parts = line.strip().split(' ')
+        setcolor[parts[0]] = parts[1] + "  " +  parts[2] + "  " +  parts[3] + "  setrgbcolor\n"
+    f.close()
+
+
+    # What if figure_width_mm > paper_width_mm?
+    # How to determine margin sizes?
+    
+    cols = math.floor(figure_width_mm / d_mm)
+    rows = math.ceil(len(sequence) / cols)
+    last_row      = len(sequence) - rows * cols
+
+    
+    seq      = sequence['sequence']
+    name     = sequence['name']
+    setcolor = readColorFile(colorfile)
+
+    paper_width_pt, paper_height_pt = paper2pt(paper)
+    paper_width_mm   = pt2mm(paper_width_pt)
+    paper_height_mm  = pt2mm(paper_height_pt)
+
+    figure_width_mm  = width_cm * 10    
+    horiz_margin_mm  = (paper_width_mm - figure_width_mm) / 2.0
+
+    top_margin_mm    = top_margin_cm * 10
+    figure_height_mm = (paper_height_mm - 2*top_margin_mm);
+
+    cols = math.floor(fig_width_mm / d_mm)
+    rows = math.ceil(len(sequence) / cols)
+    bp_in_last_row      = len(sequence) - rows * cols
+
+    rows_per_page = math.floor(figure_height_mm / d_mm)
+    pages         = len(seq) / rows_per_page
+
+    print("paper_width_mm  = " + paper_width_mm)
+    print("paper_height_mm = " + paper_height_mm)
+    
+    f = open(filename + ".ps", 'w')    
     f.write("%!\ n")
     f.write("% DNA sequence visualization\n\n")
     f.write("/mm {2.83464  mul} def\n\n")  # Convert mm to pt
 
-    left_margin_mm = 0.5 * paper_width_mm - 0.5 * width_mm
-    bottom_margin_mm = (paper_height_mm - rows*d_mm) / 2
-    
-    bp = 0         
-         pass
+
+    f.close()
