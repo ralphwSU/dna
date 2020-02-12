@@ -1,4 +1,5 @@
 import math
+import re
 import genelink as g
 
 # width  = width of image in cm
@@ -241,7 +242,7 @@ def s2ps(sequence, sequenceName, filename, width_cm, d_mm, colorfile = "colors.t
     
 
 
-def readColorFile(filename):
+def readColorFile(colorfile):
     black = "0.0  0.0  0.0"
     setcolor = {'A':black, 'C':black, 'G':black, 'T':black, 'a':black, 'c':black, 'g':black, 't':black}
     f = open(colorfile, 'r')    
@@ -318,30 +319,36 @@ def paper2pt(paper = "Letter"):
 
 # Convert points to mm.    
 def pt2mm(pt):
-    return pt * 0.
+    return pt * 0.352777778
 
+# Given the name of a sequence file, generate the ps image file.
 def ps(
         fastafile,
-        colorfile       = "colors.txt",
+        colorfile         = "colors.txt",
           
-        paper           = "Letter",     # Type of paper (used to determine paper size)
-        figure_width_cm = 13.0,         # Width of the genome plot.
-        top_margin_cm   = 1.5,          # Width of the top margin on each page.
-        legend_width_cm = 3.2,          # Width of the bottom color legend        
-        d_mm            = 1.0,          # Size in mm of the squares
+        paper             = "Letter",     # Type of paper (used to determine paper size)
+        figure_width_cm   = 13.0,         # Width of the genome plot.
+        top_margin_cm     = 1.5,          # Width of the top margin on each page.
+        legend_width_cm   = 3.2,          # Width of the bottom color legend        
+        d_mm              = 1.0,          # Size in mm of the squares
 
-        nameFontSize    = 16,
+        fontName          = "Times-Roman",
+        nameFontSize      = 16,
+        nameShiftFactor   = 1.5,          # Controls how much to shift the organism name above the image
+        pageFontSize      = 10,           # Size of the page number font
+        pageShiftFactor_h = 0.15,         # Controls how far into the right margin to print page number
+        pageShiftFactor_v = 0.20,         # Controls how far below the baseline to print the page number        
 
-        nonCoding       = False,        # If True then noncoding regions are colored differently
+        nonCoding         = False,        # If True then noncoding regions are colored differently
 
-        frameboxes      = 2,            # number of frames to put around the graphic
-        gap_mm          = 1.0,          # size of gap to put between frames
-        framestroke     = 0.5           # stroke width of the frames
+        frameboxes        = 2,            # number of frames to put around the graphic
+        gap_mm            = 1.0,          # size of gap to put between frames
+        framestroke       = 0.5           # stroke width of the frames
         ):
 
    s = g.readseq2(fastafile)
 
-   filename = s['name'] + ".ps"
+   filename = re.sub(' +', '_', s['name'])
    
    s2ps2(s,
          filename,
@@ -351,31 +358,60 @@ def ps(
          top_margin_cm,
          legend_width_cm,
          d_mm,
+         fontName,
          nameFontSize,
+         nameShiftFactor,
+         pageFontSize,
+         pageShiftFactor_h,
+         pageShiftFactor_v,
          nonCoding,
          frameboxes,
          gap_mm,
          framestroke)
+
+
+def write_centering_macro(f):
+   f.write("% Macro for centering text.\n")
+   f.write("/ceshow { % (string) fontsize fontname x y\n")
+   f.write("gsave\n")
+   f.write("moveto % s fs fn\n")
+   f.write("findfont exch scalefont setfont % s\n")
+   f.write("gsave\n")
+   f.write("dup false charpath flattenpath\n")
+   f.write("pathbbox % s x0 y0 x1 y1\n")
+   f.write("grestore\n")
+   f.write("3 -1 roll sub % s x0 x1 dy\n")
+   f.write("3 1 roll sub % s dy -dx\n")
+   f.write("2 div exch % s -dx/2 dy\n")
+   f.write("-2 div % s -dx/2 -dy\n")
+   f.write("rmoveto show\n")
+   f.write("grestore\n")
+   f.write("} bind def\n\n")
    
 # Convert a genome to a postscript file
 def s2ps2(
         sequenceData,                   # dictionary {"sequence":<string>, "name":<name of organism>}
         filename,                       # name of the file to write (e.g., "myseq.ps")
-        colorfile       = "colors.txt",
+        colorfile         = "colors.txt",
           
-        paper           = "Letter",     # Type of paper (used to determine paper size)
-        figure_width_cm = 13.0,         # Width of the genome plot.
-        top_margin_cm   = 1.5,          # Width of the top margin on each page.
-        legend_width_cm = 3.2,          # Width of the bottom color legend        
-        d_mm            = 1.0,          # Size in mm of the squares
+        paper             = "Letter",     # Type of paper (used to determine paper size)
+        figure_width_cm   = 13.0,         # Width of the genome plot.
+        top_margin_cm     = 1.5,          # Width of the top margin on each page.
+        legend_width_cm   = 3.2,          # Width of the bottom color legend        
+        d_mm              = 1.0,          # Size in mm of the squares
 
-        nameFontSize    = 16,
+        fontName          = "Times-Roman",
+        nameFontSize      = 16,           # Size of the font used for the organism name
+        nameShiftFactor   = 0.5,          # Controls how much to shift the organism name above the image
+        pageFontSize      = 10,           # Size of the page number font
+        pageShiftFactor_h = 0.15,         # Controls how far into the right margin to print page number
+        pageShiftFactor_v = 0.20,         # Controls how far below the baseline to print the page number
 
-        nonCoding       = False,        # If True then noncoding regions are colored differently
+        nonCoding         = False,        # If True then noncoding regions are colored differently
 
-        frameboxes      = 2,            # number of frames to put around the graphic
-        gap_mm          = 1.0,          # size of gap to put between frames
-        framestroke     = 0.5           # stroke width of the frames
+        frameboxes        = 2,            # number of frames to put around the graphic
+        gap_mm            = 1.0,          # size of gap to put between frames
+        framestroke       = 0.5           # stroke width of the frames
         ):
 
     # First set a default color then read the color file.
@@ -388,43 +424,116 @@ def s2ps2(
         setcolor[parts[0]] = parts[1] + "  " +  parts[2] + "  " +  parts[3] + "  setrgbcolor\n"
     f.close()
 
-
-    # What if figure_width_mm > paper_width_mm?
-    # How to determine margin sizes?
-    
-    cols = math.floor(figure_width_mm / d_mm)
-    rows = math.ceil(len(sequence) / cols)
-    last_row      = len(sequence) - rows * cols
-
-    
-    seq      = sequence['sequence']
-    name     = sequence['name']
+    sequence = sequenceData['sequence']
+    name     = sequenceData['name']
     setcolor = readColorFile(colorfile)
 
     paper_width_pt, paper_height_pt = paper2pt(paper)
     paper_width_mm   = pt2mm(paper_width_pt)
     paper_height_mm  = pt2mm(paper_height_pt)
 
-    figure_width_mm  = width_cm * 10    
+    # What if figure_width_mm > paper_width_mm?
+    # How to determine margin sizes?
+    figure_width_mm  = figure_width_cm * 10    
     horiz_margin_mm  = (paper_width_mm - figure_width_mm) / 2.0
-
+    figure_left_mm   = horiz_margin_mm
+    figure_right_mm  = figure_left_mm + figure_width_mm
+    
     top_margin_mm    = top_margin_cm * 10
     figure_height_mm = (paper_height_mm - 2*top_margin_mm);
-
-    cols = math.floor(fig_width_mm / d_mm)
+    figure_top_mm    = paper_height_mm - top_margin_mm
+    figure_bot_mm    = figure_top_mm - figure_height_mm
+    
+    cols = math.floor(figure_width_mm / d_mm)
     rows = math.ceil(len(sequence) / cols)
-    bp_in_last_row      = len(sequence) - rows * cols
+    bp_on_last_row      = len(sequence) - (rows - 1) * cols
+    empty_bp_on_last_row = cols - bp_on_last_row
 
     rows_per_page = math.floor(figure_height_mm / d_mm)
-    pages         = len(seq) / rows_per_page
+    bp_per_page   = cols * rows_per_page
+    pages         = math.ceil(len(sequence) / bp_per_page)
+    bp_on_last_page = len(sequence) - bp_per_page * (pages - 1)
 
-    print("paper_width_mm  = " + paper_width_mm)
-    print("paper_height_mm = " + paper_height_mm)
+    figure_top_mm    = paper_height_mm - top_margin_mm
+    name_y_mm        = figure_top_mm + nameShiftFactor * pt2mm(nameFontSize)
+
+    print("paper_width_mm       = " + str(paper_width_mm))
+    print("paper_height_mm      = " + str(paper_height_mm))
+    print("cols                 = " + str(cols))    
+    print("rows                 = " + str(rows))
+    print("rows_per_page        = " + str(rows_per_page))
+    print("bp_per_page          = " + str(bp_per_page))    
+    print("pages                = " + str(pages))
+    print("bp_on_last_page      = " + str(bp_on_last_page))
+    print("bp_on_last_row       = " + str(bp_on_last_row))    
+    print("empty_bp_on_last_row = " + str(empty_bp_on_last_row))
+    print("figure_width_mm      = " + str(figure_width_mm))
+    print("figure_left_mm       = " + str(figure_left_mm))
+    print("figure_right_mm      = " + str(figure_right_mm))
+    print("figure_height_mm     = " + str(figure_height_mm))    
+    print("figure_top_mm        = " + str(figure_top_mm))
+    print("figure_bot_mm        = " + str(figure_bot_mm))        
     
     f = open(filename + ".ps", 'w')    
     f.write("%!\ n")
-    f.write("% DNA sequence visualization\n\n")
-    f.write("/mm {2.83464  mul} def\n\n")  # Convert mm to pt
+    f.write("% DNA sequence visualization for " + name + "\n\n")
+
+    # Write postscript macros
+    f.write("% Macro to convert mm to pt.\n")
+    f.write("/mm {2.83464  mul} def\n\n")  
+    write_centering_macro(f)
+
+    # Make the legend    
 
 
+    for page in range(1, pages + 1):
+        
+       # Write the organism name
+       f.write("% Write the organism name.\n")
+
+       # Set color of the organism name to black on the first
+       # page and gray on subsequent ones.
+       if page == 1:
+          f.write("0.0  0.0  0.0  setrgbcolor\n")
+       else:
+          f.write("0.6  0.6  0.6  setrgbcolor\n")
+       f.write("/" + fontName + " findfont\n")
+       f.write(str(nameFontSize) + " scalefont\n")
+       f.write("setfont\n")
+
+       f.write("(" + name + ") ")
+       f.write(str(nameFontSize) + " /" + fontName + " ")
+       f.write(str(paper_width_mm / 2.0) + " mm ")
+       f.write(str(name_y_mm) + " mm ")
+       f.write("ceshow\n\n")
+
+       # Make the frame(s)
+       f.write("% Print frame(s) around the image.\n")
+       f.write("0.0  0.0  0.0  setrgbcolor\n")
+       f.write("0.5 setlinewidth\n")
+       f.write("newpath\n")
+       f.write(F(figure_left_mm)  + " mm " + F(figure_bot_mm) + " mm moveto\n")
+       f.write(F(figure_right_mm) + " mm " + F(figure_bot_mm) + " mm lineto\n")
+       f.write(F(figure_right_mm) + " mm " + F(figure_top_mm) + " mm lineto\n")
+       f.write(F(figure_left_mm)  + " mm " + F(figure_top_mm) + " mm lineto\n")
+       f.write("closepath\n")
+       f.write("stroke\n")       
+       
+       # Print  "print page / pages" at the lower left corner      
+       f.write("% Print page / pages at the lower left corner\n")
+       f.write("0.4  0.4  0.4  setrgbcolor\n")
+       f.write("/" + str(fontName) + " findfont\n")
+       f.write(str(pageFontSize) + " scalefont\n")
+       f.write("setfont\n")
+       text = "page " + str(page) + "/" + str(pages)
+       x_pos = (paper_width_mm - horiz_margin_mm) + pageShiftFactor_h * horiz_margin_mm
+       y_pos = top_margin_mm  - pageShiftFactor_v * top_margin_mm       
+       f.write(str(x_pos) + " mm " + str(y_pos) + " mm moveto\n")
+       f.write("(" + text + ") show\n\n")
+
+       
+
+       # Write statistics
+
+       f.write("showpage\n")
     f.close()
