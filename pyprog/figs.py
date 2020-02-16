@@ -937,13 +937,14 @@ def makebook():
         os.system("mv " + fig_file + ".pdf " + figDir)
     os.chdir(figDir)
     pdf_files = []
-    for file in glob.glob("*.pdf"): #figDir + "*.pdf"):
+    for file in glob.glob("*.pdf"): 
        pdf_files.append(file)
     print(pdf_files)
     
     os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
     for i in range(2, len(pdf_files)):
-        os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp.pdf")
+        os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
+        os.system("mv tmp1.pdf tmp.pdf")
     os.chdir("../pyprog")        
 
 
