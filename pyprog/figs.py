@@ -63,6 +63,9 @@ def s2t(sequence, filename, width_cm, d_mm):
 def F(x):
     return '{0:0.5f}'.format(x)
 
+def F3(x):
+    return '{0:0.3f}'.format(x)
+
 # Convert gene sequence to a postscript file
 def s2ps(sequence, sequenceName, filename, width_cm, d_mm, colorfile = "colors.txt", fontsize = 16):
     # Read colors
@@ -324,7 +327,7 @@ def pt2mm(pt):
 # Given the name of a sequence file, generate the ps image file.
 def ps(
         fastafile,
-        colorfile         = "colors.txt",
+        colorfile         = "colorsBlue3.txt",
           
         paper             = "Letter",     # Type of paper (used to determine paper size)
         figure_width_cm   = 13.0,         # Width of the genome plot.
@@ -336,9 +339,13 @@ def ps(
         nameFontSize      = 16,
         nameShiftFactor   = 1.5,          # Controls how much to shift the organism name above the image
         pageFontSize      = 10,           # Size of the page number font
-        pageShiftFactor_h = 0.15,         # Controls how far into the right margin to print page number
-        pageShiftFactor_v = 0.20,         # Controls how far below the baseline to print the page number        
-
+        pageShiftFactor_h = 0.25,         # Controls how far into the right margin to print page number
+        pageShiftFactor_v = 0.6,         # Controls how far below the baseline to print the page number
+        statFontSize      = 12,           # Size of the font used to print statistics
+        statShiftFactor_v = 0.3,          # Controls how far away from the frame to shift the stats
+        statShiftFactor_h = 0.1,          # Controls how far away from the frame to shift the stats 
+        frameSepFactor    = 0.5,
+        
         nonCoding         = False,        # If True then noncoding regions are colored differently
 
         frameboxes        = 2,            # number of frames to put around the graphic
@@ -364,6 +371,10 @@ def ps(
          pageFontSize,
          pageShiftFactor_h,
          pageShiftFactor_v,
+         statFontSize,
+         statShiftFactor_v,
+         statShiftFactor_h,
+         frameSepFactor,
          nonCoding,
          frameboxes,
          gap_mm,
@@ -387,12 +398,35 @@ def write_centering_macro(f):
    f.write("rmoveto show\n")
    f.write("grestore\n")
    f.write("} bind def\n\n")
+
+def write_center_align_macro(f):
+   f.write("/cshow { dup stringwidth pop 2 div neg 0 rmoveto show } def\n\n")
+   
+def write_right_align_macro(f):
+   f.write("/rshow { dup stringwidth pop neg 0 rmoveto show } def\n\n")
+   
+def write_rotate_text_macro(f, fontName):
+   f.write("% Macro for typesetting rotated text\n")
+   f.write("/outputtext {\n")
+   f.write("/data exch def\n")
+   f.write("/rot exch def\n")
+   f.write("/xfont exch def\n")
+   f.write("/y1 exch def\n")
+   f.write("/x1 exch def\n")
+   f.write("/" + fontName + " findfont\n")
+   f.write("xfont scalefont\n")
+   f.write("setfont\n")
+   f.write("x1 y1 moveto\n")
+   f.write("rot rotate\n")
+   f.write("data show\n")
+   f.write("rot neg rotate\n")
+   f.write("} def\n\n")
    
 # Convert a genome to a postscript file
 def s2ps2(
         sequenceData,                   # dictionary {"sequence":<string>, "name":<name of organism>}
         filename,                       # name of the file to write (e.g., "myseq.ps")
-        colorfile         = "colors.txt",
+        colorfile         = "colorsBlue3.txt",
           
         paper             = "Letter",     # Type of paper (used to determine paper size)
         figure_width_cm   = 13.0,         # Width of the genome plot.
@@ -402,10 +436,15 @@ def s2ps2(
 
         fontName          = "Times-Roman",
         nameFontSize      = 16,           # Size of the font used for the organism name
-        nameShiftFactor   = 0.5,          # Controls how much to shift the organism name above the image
+        nameShiftFactor   = 1.5,          # Controls how much to shift the organism name above the image
         pageFontSize      = 10,           # Size of the page number font
-        pageShiftFactor_h = 0.15,         # Controls how far into the right margin to print page number
-        pageShiftFactor_v = 0.20,         # Controls how far below the baseline to print the page number
+        pageShiftFactor_h = 0.25,         # Controls how far into the right margin to print page number
+        pageShiftFactor_v = 0.6,          # Controls how far below the baseline to print the page number
+
+        statFontSize      = 12,           # Size of the font used to print statistics
+        statShiftFactor_v = 0.3,          # Controls how far away from the frame to shift the stats
+        statShiftFactor_h = 0.1,          # Controls how far away from the frame to shift the stats
+        frameSepFactor    = 0.5,          # Controls separation between the two frames
 
         nonCoding         = False,        # If True then noncoding regions are colored differently
 
@@ -424,7 +463,10 @@ def s2ps2(
         setcolor[parts[0]] = parts[1] + "  " +  parts[2] + "  " +  parts[3] + "  setrgbcolor\n"
     f.close()
 
-    sequence = sequenceData['sequence']
+    sequence  = sequenceData['sequence']
+    sequence1 = g.seq2c2(sequenceData)
+    stats     = g.stat(sequence1)
+    sequence = sequence1['cs']
     name     = sequenceData['name']
     setcolor = readColorFile(colorfile)
 
@@ -440,20 +482,28 @@ def s2ps2(
     figure_right_mm  = figure_left_mm + figure_width_mm
     
     top_margin_mm    = top_margin_cm * 10
-    figure_height_mm = (paper_height_mm - 2*top_margin_mm);
     figure_top_mm    = paper_height_mm - top_margin_mm
-    figure_bot_mm    = figure_top_mm - figure_height_mm
     
+
     cols = math.floor(figure_width_mm / d_mm)
+    figure_right_mm  = figure_left_mm + cols * d_mm
+    figure_width_mm  = figure_right_mm - figure_left_mm
+    
     rows = math.ceil(len(sequence) / cols)
     bp_on_last_row      = len(sequence) - (rows - 1) * cols
     empty_bp_on_last_row = cols - bp_on_last_row
 
+    figure_height_mm  = paper_height_mm - 2 * top_margin_mm
     rows_per_page = math.floor(figure_height_mm / d_mm)
+    
+    figure_bot_mm     = figure_top_mm - rows_per_page * d_mm
+    figure_height_mm  = figure_top_mm - figure_bot_mm    
+
     bp_per_page   = cols * rows_per_page
     pages         = math.ceil(len(sequence) / bp_per_page)
     bp_on_last_page = len(sequence) - bp_per_page * (pages - 1)
-
+    rows_on_last_page = math.ceil(bp_on_last_page / cols)
+    
     figure_top_mm    = paper_height_mm - top_margin_mm
     name_y_mm        = figure_top_mm + nameShiftFactor * pt2mm(nameFontSize)
 
@@ -465,7 +515,8 @@ def s2ps2(
     print("bp_per_page          = " + str(bp_per_page))    
     print("pages                = " + str(pages))
     print("bp_on_last_page      = " + str(bp_on_last_page))
-    print("bp_on_last_row       = " + str(bp_on_last_row))    
+    print("bp_on_last_row       = " + str(bp_on_last_row))
+    print("rows_on_last_page    = " + str(rows_on_last_page))
     print("empty_bp_on_last_row = " + str(empty_bp_on_last_row))
     print("figure_width_mm      = " + str(figure_width_mm))
     print("figure_left_mm       = " + str(figure_left_mm))
@@ -475,22 +526,26 @@ def s2ps2(
     print("figure_bot_mm        = " + str(figure_bot_mm))        
     
     f = open(filename + ".ps", 'w')    
-    f.write("%!\ n")
+    f.write("%!\n")
     f.write("% DNA sequence visualization for " + name + "\n\n")
 
     # Write postscript macros
     f.write("% Macro to convert mm to pt.\n")
     f.write("/mm {2.83464  mul} def\n\n")  
     write_centering_macro(f)
+    write_rotate_text_macro(f, fontName)
+    write_right_align_macro(f)
+    write_center_align_macro(f)    
+    
 
     # Make the legend    
 
-
+    bp = 0
     for page in range(1, pages + 1):
-        
-       # Write the organism name
-       f.write("% Write the organism name.\n")
+       f.write("%%Page: " + str(page) + " " + str(pages) + "\n\n")
 
+       # Write the organism name       
+       f.write("% Write the organism name.\n")
        # Set color of the organism name to black on the first
        # page and gray on subsequent ones.
        if page == 1:
@@ -507,17 +562,76 @@ def s2ps2(
        f.write(str(name_y_mm) + " mm ")
        f.write("ceshow\n\n")
 
+
+       rows_this_page = rows_per_page
+       if page == pages:
+           rows_this_page = rows_on_last_page
+         
+       for row in range(rows_this_page):
+          cols_this_row = cols
+          if (page == pages) and (row == (rows_on_last_page - 1)):
+              cols_this_row = bp_on_last_row
+          for col in range(cols_this_row):
+             f.write(setcolor[sequence[bp]])
+             f.write("newpath\n")
+             left   = figure_left_mm + col * d_mm
+             right  = figure_left_mm + (col + 1) * d_mm
+
+             top    = figure_top_mm  - row * d_mm
+             bottom = figure_top_mm  - (row + 1) * d_mm             
+             
+             #top    = figure_bot_mm  + (rows_this_page - row) * d_mm
+             #bottom = figure_bot_mm  + (rows_this_page - row -1) * d_mm
+             f.write(F(left)  + " mm " + F(top)    + " mm moveto\n")
+             f.write(F(right) + " mm " + F(top)    + " mm lineto\n")
+             f.write(F(right) + " mm " + F(bottom) + " mm lineto\n")
+             f.write(F(left)  + " mm " + F(bottom) + " mm lineto\n")  
+             f.write("closepath\n")
+             f.write("fill\n")
+             bp = bp + 1
+       f.write("\n")
+             
        # Make the frame(s)
        f.write("% Print frame(s) around the image.\n")
        f.write("0.0  0.0  0.0  setrgbcolor\n")
        f.write("0.5 setlinewidth\n")
        f.write("newpath\n")
+       # bottom should change on last page
+       if page == pages:
+           figure_bot_mm = figure_top_mm - rows_on_last_page * d_mm
        f.write(F(figure_left_mm)  + " mm " + F(figure_bot_mm) + " mm moveto\n")
        f.write(F(figure_right_mm) + " mm " + F(figure_bot_mm) + " mm lineto\n")
        f.write(F(figure_right_mm) + " mm " + F(figure_top_mm) + " mm lineto\n")
        f.write(F(figure_left_mm)  + " mm " + F(figure_top_mm) + " mm lineto\n")
        f.write("closepath\n")
-       f.write("stroke\n")       
+       f.write("stroke\n\n")       
+
+       f.write("0.0  0.0  0.0  setrgbcolor\n")
+       f.write("0.5 setlinewidth\n")
+       f.write("newpath\n")
+       # bottom should change on last page
+       if page == pages:
+           figure_bot_mm = figure_top_mm - rows_on_last_page * d_mm
+       x_left  = figure_left_mm  - frameSepFactor * d_mm
+       x_right = figure_right_mm + frameSepFactor * d_mm
+       y_top   = figure_top_mm   + frameSepFactor * d_mm
+       y_bot   = figure_bot_mm   - frameSepFactor * d_mm       
+       f.write(F(x_left)  + " mm " + F(y_bot) + " mm moveto\n")
+       f.write(F(x_right) + " mm " + F(y_bot) + " mm lineto\n")
+       f.write(F(x_right) + " mm " + F(y_top) + " mm lineto\n")
+       f.write(F(x_left)  + " mm " + F(y_top) + " mm lineto\n")
+       f.write("closepath\n")
+       f.write("stroke\n\n")       
+       
+       f.write("% Print number of base pairs.\n")
+       f.write("0.5  0.5  0.5  setrgbcolor\n")
+       f.write("/" + str(fontName) + " findfont\n")
+       f.write(str(statFontSize) + " scalefont\n")
+       f.write("setfont\n")       
+       x_pos = horiz_margin_mm
+       y_pos = top_margin_mm - statShiftFactor_v * top_margin_mm # should depend on font size
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       f.write("(" + str(len(sequence)) + " base pairs) show\n\n ")    
        
        # Print  "print page / pages" at the lower left corner      
        f.write("% Print page / pages at the lower left corner\n")
@@ -531,9 +645,305 @@ def s2ps2(
        f.write(str(x_pos) + " mm " + str(y_pos) + " mm moveto\n")
        f.write("(" + text + ") show\n\n")
 
-       
-
        # Write statistics
+       x_pos = figure_left_mm - statShiftFactor_h * horiz_margin_mm
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm
+       f.write("% Print percent of each coding/non-coding base molecule\n")
+       f.write("0.3  0.3  0.3  setrgbcolor\n")
+       text = "(A: " + F3(stats['A']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
 
-       f.write("showpage\n")
+       y_pos = figure_bot_mm + figure_height_mm / 8
+       text = "(C: " + F3(stats['C']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+
+       y_pos = figure_bot_mm + 2 * figure_height_mm / 8
+       text = "(G: " + F3(stats['G']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+
+       y_pos = figure_bot_mm + 3 * figure_height_mm / 8
+       text = "(T: " + F3(stats['T']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+
+       y_pos = figure_bot_mm + 4 * figure_height_mm / 8
+       text = "(a: " + F3(stats['a']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+
+       y_pos = figure_bot_mm + 5 * figure_height_mm / 8
+       text = "(c: " + F3(stats['c']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+
+       y_pos = figure_bot_mm + 6 * figure_height_mm / 8
+       text = "(g: " + F3(stats['g']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+
+       y_pos = figure_bot_mm + 7 * figure_height_mm / 8
+       text = "(t: " + F3(stats['t']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n\n")       
+
+       # Write the color legend
+       f.write("% Write the color legend\n")
+       legendBoxSize_mm = 3
+       f.write(setcolor['A'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n") 
+
+       f.write(setcolor['C'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm  + figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n")
+
+       f.write(setcolor['G'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm  + 2 * figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n")        
+
+       f.write(setcolor['T'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm  + 3 * figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n")
+
+       f.write(setcolor['a'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm + 4 * figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n") 
+
+       f.write(setcolor['c'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm  + 5 * figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n")
+
+       f.write(setcolor['g'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm  + 6 * figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n")        
+
+       f.write(setcolor['t'])
+       f.write("newpath\n")
+       x_pos = figure_left_mm - 2.5 * statShiftFactor_h * horiz_margin_mm       
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm  + 7 * figure_height_mm / 8
+       f.write(F(x_pos)                    + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos) + " mm lineto\n")
+       f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
+       f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
+       f.write("closepath\n")
+       f.write("fill\n")        
+       
+       # Write the coding fraction
+       f.write("% Write coding and noncoding fractions\n")
+       f.write("0.3  0.3  0.3  setrgbcolor\n")
+       f.write("/" + str(fontName) + " findfont\n")
+       f.write(str(statFontSize) + " scalefont\n")
+       f.write("setfont\n")       
+       x_pos = paper_width_mm / 2
+       y_pos = top_margin_mm - statShiftFactor_v * top_margin_mm 
+       text = "(coding : " + F3(stats['i']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(text + " cshow\n")
+       
+       # Right justify the non-coding string
+       x_pos = figure_right_mm
+       text = "(noncoding : " + F3(stats['e']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       f.write(text + " rshow\n\n")
+
+       # Write the amino acid percentages
+       x_pos = figure_right_mm + 1.5 * statShiftFactor_h * horiz_margin_mm
+       figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
+       y_pos = figure_bot_mm
+       f.write("% Print percent of each amino acid in the coding section\n")
+       # 1
+       f.write("0.3  0.3  0.3  setrgbcolor\n")
+       text = "(A: " + F3(stats['A1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 2
+       y_pos = figure_bot_mm + figure_height_mm / 10
+       text = "(C: " + F3(stats['C1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 3       
+       y_pos = figure_bot_mm + 2 * figure_height_mm / 10
+       text = "(D: " + F3(stats['D1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 4       
+       y_pos = figure_bot_mm + 3 * figure_height_mm / 10
+       text = "(E: " + F3(stats['E1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 5       
+       y_pos = figure_bot_mm + 4 * figure_height_mm / 10
+       text = "(F: " + F3(stats['F1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 6       
+       y_pos = figure_bot_mm + 5 * figure_height_mm / 10
+       text = "(G: " + F3(stats['G1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 7       
+       y_pos = figure_bot_mm + 6 * figure_height_mm / 10
+       text = "(H: " + F3(stats['H1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 8
+       y_pos = figure_bot_mm + 7 * figure_height_mm / 10
+       text = "(I: " + F3(stats['I1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 9       
+       y_pos = figure_bot_mm + 8 * figure_height_mm / 10
+       text = "(K: " + F3(stats['K1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 10       
+       y_pos = figure_bot_mm + 9 * figure_height_mm / 10
+       text = "(L: " + F3(stats['L1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")       
+
+       # 11
+       x_pos = x_pos + 2 * statShiftFactor_h * horiz_margin_mm
+       y_pos = figure_bot_mm #+ figure_height_mm 
+       text = "(M: " + F3(stats['M1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 12      
+       y_pos = figure_bot_mm + 1 * figure_height_mm / 10
+       text = "(N: " + F3(stats['N1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 13       
+       y_pos = figure_bot_mm + 2 * figure_height_mm / 10
+       text = "(P: " + F3(stats['P1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 14       
+       y_pos = figure_bot_mm + 3 * figure_height_mm / 10
+       text = "(Q: " + F3(stats['Q1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 15       
+       y_pos = figure_bot_mm + 4 * figure_height_mm / 10
+       text = "(R: " + F3(stats['R1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 16       
+       y_pos = figure_bot_mm + 5 * figure_height_mm / 10
+       text = "(S: " + F3(stats['S1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 17
+       y_pos = figure_bot_mm + 6 * figure_height_mm / 10
+       text = "(T: " + F3(stats['T1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 18      
+       y_pos = figure_bot_mm + 7 * figure_height_mm / 10
+       text = "(V: " + F3(stats['V1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")
+       # 19       
+       y_pos = figure_bot_mm + 8 * figure_height_mm / 10
+       text = "(Y: " + F3(stats['Y1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")       
+       # 20
+       y_pos = figure_bot_mm + 9 * figure_height_mm / 10
+       text = "(W: " + F3(stats['W1']) + ")"
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
+       f.write(str(statFontSize) + " 90 " + text + " outputtext\n")       
+       
+       f.write("showpage\n\n")
     f.close()
+
+import os
+dataDir = "../data/"
+figDir  = "../figs/"
+import glob
+def makebook():
+    fasta_files = []
+    for file in glob.glob(dataDir + "*.fasta"):
+       fasta_files.append(file)
+    for file in fasta_files:
+        fig_file = figDir + file[8:len(file)]
+        fig_file = fig_file[0:(len(fig_file) - 6)]
+        fig_file = fig_file
+        s = g.readseq2(file)        
+        s2ps2(s, filename = fig_file, d_mm = 1.2, colorfile='colorsBlue2.txt', top_margin_cm = 2.0)
+        os.system("ps2pdf " + fig_file + ".ps")
+        fig_file = fig_file[8:len(fig_file)]
+        os.system("mv " + fig_file + ".pdf " + figDir)
+    os.chdir(figDir)
+    pdf_files = []
+    for file in glob.glob("*.pdf"): #figDir + "*.pdf"):
+       pdf_files.append(file)
+    print(pdf_files)
+    
+    os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
+    for i in range(2, len(pdf_files)):
+        os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp.pdf")
+    os.chdir("../pyprog")        
+
+
