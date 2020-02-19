@@ -58,6 +58,8 @@ def a2n(a = 'F'):
 
 # Transform a codon to an amino acid code letter.  Return '' for stop codons.
 def c2a(c = 'TTT'):
+    if len(c) < 3:
+       return ''
     if c in ['TTT', 'TTC']:
         return 'F'
     elif c in ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG']:
@@ -172,7 +174,9 @@ def seq2c2(sequence, verbose = False):
              i = i + 1
        elif state == READING_AMINO_ACIDS:
           codon = seq[i:(i+3)]
-          aa = c2a(codon)
+          aa = ''
+          if not codon == '':
+             aa = c2a(codon)
           i = i + 3
           if len(aa) > 0:
              amino_acids = amino_acids + aa
