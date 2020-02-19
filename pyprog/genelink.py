@@ -256,6 +256,7 @@ def pf():
 #
 def stat(seq):
    results = {}
+   print(seq.keys())
    results['length'] =  len(seq['cs'])
    results['i']      = seq['coding_fraction']
    results['e']      = seq['noncoding_fraction']
@@ -412,8 +413,33 @@ def readAll(fileList = []):
 
 import numpy as np
 import matplotlib.pyplot as plt
-#from sklearn.cluster import KMeans
 
+import pandas as pd
+from sklearn.decomposition import PCA
+def runpca(fileList = []):
+   features = ['i', 'e', 'A', 'C', 'G', 'T', 'a', 'c', 'g', 't', 'C1', 'D1', 'E1', 'F1', 'G1',
+               'H1', 'I1', 'K1', 'L1', 'M1', 'N1', 'P1', 'Q1', 'R1', 'S1', 'T1', 'V1', 'W1']
+   sequences = readAll(fileList)
+   print(len(sequences))
+   sequences2 = []
+   for s in sequences:
+      print (s['name'])
+      sequences2.append(stat(seq2c2(s)))
+   x = [[0]* len(features)  for i in range(len(sequences2))]
+   for i in range(len(sequences2)):
+      for j in range(len(features)):
+         x[i][j] = sequences2[i][features[j]]
+   X = np.array(x)
+   pca = PCA(n_components = 2)
+   principalComponents = pca.fit_transform(X)
+   principalDF = pd.DataFrame(data = principalComponents, columns = ['pc1', 'pc2'])
+   #pca.fit(X)
+   print(principalDF)
+   plt.scatter(principalDF['pc1'], principalDF['pc2'])
+   plt.show()   
+   #return pca
+
+#from sklearn.cluster import KMeans
 # Apply k-means clustering baded on a specified feature list.
 # [incomplete]
 def km(features = ['i'], fileList = []):
