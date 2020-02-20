@@ -1,11 +1,11 @@
 # GeneLink test code.
 
-dataDir = "../data"
+dataDir = "data/"
 
 import os
 # list the available data files
-def ld(verbose=True):
-   files = os.listdir(dataDir)
+def ld(verbose=True, dataDir = dataDir):
+   files = os.listdir("../" + dataDir)
    if verbose:
       for f in files:
          print (f)
@@ -104,6 +104,7 @@ def c2a(c = 'TTT'):
         return ''
     elif c in ['TGA']:           # Stop
         return ''
+    return ''
 
      
 # Transform a DNA sequence into a sequence of amino acids.
@@ -158,7 +159,7 @@ def seq2c2(sequence, verbose = False):
     caseSensitive = ''    
     state       = WAITING_FOR_START
     start_index = 0
-    i           = 0
+    i           = 0      # Where we are in the sequence
     while i < len(seq):
        #print (i, state, triple)
        if state == WAITING_FOR_START:
@@ -178,6 +179,7 @@ def seq2c2(sequence, verbose = False):
           if not codon == '':
              aa = c2a(codon)
           i = i + 3
+          #print(aa)
           if len(aa) > 0:
              amino_acids = amino_acids + aa
              caseSensitive = caseSensitive + codon
@@ -212,10 +214,10 @@ def seq2c2(sequence, verbose = False):
 
 
 # Process all data files.
-def pf():
-   files = ld()
+def pf(dataDir = dataDir):
+   files = ld(dataDir = dataDir)
    for file in files():
-      s = readseq2(file)
+      s = readseq2(file, dataDir = dataDir)
       #convert to 
 
 # Compute statistics about the sequence.
@@ -256,7 +258,8 @@ def pf():
 #
 def stat(seq):
    results = {}
-   print(seq.keys())
+   #print(seq.keys())
+   print(seq['name'])
    results['length'] =  len(seq['cs'])
    results['i']      = seq['coding_fraction']
    results['e']      = seq['noncoding_fraction']
@@ -289,7 +292,8 @@ def stat(seq):
    results['Y1']     = 0.0
    results['W1']     = 0.0
    for x in seq['cs']:
-       results[x] = results[x] + 1
+       if (not (x == 'n') and not (x in 'rwys')):
+         results[x] = results[x] + 1
    results['A'] = results['A'] / seq['coding_length']
    results['C'] = results['C'] / seq['coding_length']
    results['G'] = results['G'] / seq['coding_length']
@@ -304,7 +308,7 @@ def stat(seq):
    return (results)
 
 def test3(filename):
-   seq  = readseq2(filename)
+   seq  = readseq2(filename, dataDir = dataDir)
    seq1 = seq2c2(seq)
    coding_length    = 0
    noncoding_length = 0   
@@ -317,14 +321,14 @@ def test3(filename):
    print ([noncoding_length, seq1['noncoding_length'], noncoding_length - seq1['noncoding_length']])
 
 def test2(filename):
-   seq  = readseq2(filename)
+   seq  = readseq2(filename, dataDir = dataDir)
    seq1 = seq2c2(seq)
    st   = stat(seq1)
    print([st['A'] + st['C'] + st['G'] + st['T']])   
    print([st['a'] + st['c'] + st['g'] + st['t']])   
     
 def test1(filename):
-   seq  = readseq2(filename)
+   seq  = readseq2(filename, dataDir = dataDir)
    seq1 = seq2c2(seq)
    A  = C  = G  = T  = 0
    A1 = C1 = G1 = T1 = 0
@@ -356,8 +360,8 @@ def test1(filename):
 
 # Read a DNA sequence from a FASTA formatted file.  The first
 # line must be a comment line as it is ignored.
-def readseq(filename):
-   path = dataDir + "/" + filename
+def readseq(filename, dataDir = dataDir):
+   path = "../" + dataDir + "/" + filename
    seq = ""
    f = open(path, 'r')
    line = f.readline()
@@ -378,9 +382,10 @@ def readseq(filename):
 #      a dictionary with two keys:
 #         sequence: the genome sequence
 #         name    : the name of the organism
-def readseq2(filename, verbose=False):
-   path = dataDir + "/" + filename
+def readseq2(filename, verbose=False, dataDir = dataDir):
+   path = "../" + dataDir + "/" + filename
    seq = ""
+   #print (" XXX " + path)
    f = open(path, 'r')
    line = f.readline()
    n1 = line.find(' ')
@@ -401,14 +406,18 @@ def readseq2(filename, verbose=False):
 #    fileList: a list of file names to be found in dataDir
 # Outputs:
 #    a list of the sequences read from the files
-def readAll(fileList = []):
+def readAll(fileList = [], dataDir = dataDir):
+   print("***** " + dataDir)
+   os.chdir("../" + dataDir)
+   print("***** " + os.getcwd())
    if len(fileList) == 0:
-      fileList = ld(verbose=False)
+      fileList = ld(verbose=False, dataDir=dataDir)
    else:
       pass # Read only files from the list
    sequences = []
    for file in fileList:
-      sequences.append(readseq2(file))
+      sequences.append(readseq2(file, dataDir=dataDir))
+   os.chdir("../pyprog")
    return sequences
 
 import numpy as np
@@ -416,11 +425,10 @@ import matplotlib.pyplot as plt
 
 import pandas as pd
 from sklearn.decomposition import PCA
-def runpca(fileList = []):
+def runpca(fileList = [], dataDir=dataDir):
    features = ['i', 'e', 'A', 'C', 'G', 'T', 'a', 'c', 'g', 't', 'C1', 'D1', 'E1', 'F1', 'G1',
                'H1', 'I1', 'K1', 'L1', 'M1', 'N1', 'P1', 'Q1', 'R1', 'S1', 'T1', 'V1', 'W1']
-   sequences = readAll(fileList)
-   print(len(sequences))
+   sequences = readAll(fileList, dataDir=dataDir)
    sequences2 = []
    for s in sequences:
       print (s['name'])
@@ -442,8 +450,8 @@ def runpca(fileList = []):
 #from sklearn.cluster import KMeans
 # Apply k-means clustering baded on a specified feature list.
 # [incomplete]
-def km(features = ['i'], fileList = []):
-   sequences = readAll(fileList)
+def km(features = ['i'], fileList = [], dataDir = dataDir):
+   sequences = readAll(fileList, dataDir=dataDir)
    sequences2 = []
    for s in sequences:
       sequences2.append(stat(seq2c2(s)))
@@ -456,14 +464,14 @@ def km(features = ['i'], fileList = []):
 # Plot two dimensions of features.  That is, read all the sequence 
 # data in the data directory, compute all the statistics then plot
 # two specified dimensions.
-def p2d(dims = [0, 1], features = ['i', 'C1'], fileList = []):
+def p2d(dims = [0, 1], features = ['i', 'C1'], fileList = [], dataDir = dataDir):
    if len(dims) < 2 or len(features) < 2:
       print ("I need two features to make a plot.  Goodbye.")
       return
    if len(dims) > 2:
       print ("I can only make a plot with two features.  Going with the first two.")
    dims2 = dims[0:2]
-   points = km(features, fileList)
+   points = km(features, fileList, dataDir=dataDir)
    x = [points[i][dims2[0]] for i in range(len(points))]
    y = [points[i][dims2[1]] for i in range(len(points))]
    plt.scatter(x, y)

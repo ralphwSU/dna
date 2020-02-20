@@ -2,6 +2,9 @@ import math
 import re
 import genelink as g
 
+dataDir = "data/"
+figDir  = "figs/"
+
 # width  = width of image in cm
 # height = height of image in cm
 # d      = dimension of square
@@ -327,6 +330,7 @@ def pt2mm(pt):
 # Given the name of a sequence file, generate the ps image file.
 def ps(
         fastafile,
+        dataDir           = dataDir,
         colorfile         = "colorsBlue3.txt",
           
         paper             = "Letter",     # Type of paper (used to determine paper size)
@@ -353,12 +357,13 @@ def ps(
         framestroke       = 0.5           # stroke width of the frames
         ):
 
-   s = g.readseq2(fastafile)
+   s = g.readseq2(fastafile, dataDir = dataDir)
 
    filename = re.sub(' +', '_', s['name'])
    
    s2ps2(s,
          filename,
+         dataDir,
          colorfile,
          paper,
          figure_width_cm,
@@ -426,6 +431,7 @@ def write_rotate_text_macro(f, fontName):
 def s2ps2(
         sequenceData,                   # dictionary {"sequence":<string>, "name":<name of organism>}
         filename,                       # name of the file to write (e.g., "myseq.ps")
+        dataDir           = dataDir,
         colorfile         = "colorsBlue3.txt",
           
         paper             = "Letter",     # Type of paper (used to determine paper size)
@@ -455,6 +461,7 @@ def s2ps2(
 
     # First set a default color then read the color file.
     black = "0.0  0.0  0.0"
+    white = "1.0  1.0  1.0"    
     setcolor = {'A':black, 'C':black, 'G':black, 'T':black, 'a':black, 'c':black, 'g':black, 't':black}
     f = open(colorfile, 'r')    
     lines = f.readlines()    
@@ -572,7 +579,10 @@ def s2ps2(
           if (page == pages) and (row == (rows_on_last_page - 1)):
               cols_this_row = bp_on_last_row
           for col in range(cols_this_row):
-             f.write(setcolor[sequence[bp]])
+             if (sequence[bp] in 'nrswy'):
+                f.write(white)
+             else:
+                f.write(setcolor[sequence[bp]])
              f.write("newpath\n")
              left   = figure_left_mm + col * d_mm
              right  = figure_left_mm + (col + 1) * d_mm
@@ -919,23 +929,31 @@ def s2ps2(
     f.close()
 
 import os
-dataDir = "../data/"
-figDir  = "../figs/"
 import glob
-def makebook():
+def makebook(dataDir = dataDir, figDir = figDir):
     fasta_files = []
-    for file in glob.glob(dataDir + "*.fasta"):
+    #os.chdir("../" + dataDir)
+    print(" &&& " + os.getcwd())    
+    #for file in glob.glob("../" + dataDir + "*.fasta"):
+    for file in glob.glob("../" + dataDir + "/*.fasta"):    
+       print(" &&& " + file)
        fasta_files.append(file)
     for file in fasta_files:
-        fig_file = figDir + file[8:len(file)]
+        file_name = file.split("/")
+        file_name = file_name[len(file_name) - 1]
+        fig_file = "../" + figDir + "/" + file_name 
         fig_file = fig_file[0:(len(fig_file) - 6)]
         fig_file = fig_file
-        s = g.readseq2(file)        
-        s2ps2(s, filename = fig_file, d_mm = 1.2, colorfile='colorsBlue2.txt', top_margin_cm = 2.0)
+        s = g.readseq2(file, dataDir = dataDir)
+        print (" @@@@@@ " + fig_file)
+        s2ps2(s, filename = fig_file, d_mm = 1.2, colorfile='../pyprog/colorsBlue2.txt',
+              top_margin_cm = 2.0)
+        os.chdir("../" + figDir)
         os.system("ps2pdf " + fig_file + ".ps")
-        fig_file = fig_file[8:len(fig_file)]
-        os.system("mv " + fig_file + ".pdf " + figDir)
-    os.chdir(figDir)
+        #fig_file = "../" + figDir + "/" + fig_file[8:len(fig_file)]
+        #os.system("mv " + fig_file + ".pdf " + " ../" + figDir)
+    print(os.getcwd())
+    os.chdir("../" + figDir)
     pdf_files = []
     for file in glob.glob("*.pdf"): 
        pdf_files.append(file)
@@ -943,6 +961,7 @@ def makebook():
     
     os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
     for i in range(2, len(pdf_files)):
+        print("Processing " + pdf_files[i])
         os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
         os.system("mv tmp1.pdf tmp.pdf")
     os.chdir("../pyprog")        
