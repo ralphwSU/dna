@@ -292,7 +292,7 @@ def stat(seq):
    results['Y1']     = 0.0
    results['W1']     = 0.0
    for x in seq['cs']:
-       if (not (x == 'n') and not (x in 'rwys')):
+       if (not (x == 'n') and not (x in 'rwyslkm')):
          results[x] = results[x] + 1
    results['A'] = results['A'] / seq['coding_length']
    results['C'] = results['C'] / seq['coding_length']
@@ -385,7 +385,6 @@ def readseq(filename, dataDir = dataDir):
 def readseq2(filename, verbose=False, dataDir = dataDir):
    path = "../" + dataDir + "/" + filename
    seq = ""
-   #print (" XXX " + path)
    f = open(path, 'r')
    line = f.readline()
    n1 = line.find(' ')
@@ -396,7 +395,9 @@ def readseq2(filename, verbose=False, dataDir = dataDir):
    f.close()
    if verbose:
       print(filename + " read")
-   return {"sequence":seq, "name":name}
+   n = len(filename)
+   print("***** " + filename)
+   return {"sequence":seq, "name":name, "filename":filename[0:(n-len(".fasta"))]}
 
 
 # Read all the fasta files in a specified file list.
@@ -407,9 +408,7 @@ def readseq2(filename, verbose=False, dataDir = dataDir):
 # Outputs:
 #    a list of the sequences read from the files
 def readAll(fileList = [], dataDir = dataDir):
-   print("***** " + dataDir)
    os.chdir("../" + dataDir)
-   print("***** " + os.getcwd())
    if len(fileList) == 0:
       fileList = ld(verbose=False, dataDir=dataDir)
    else:
@@ -441,8 +440,9 @@ def runpca(fileList = [], dataDir=dataDir):
    pca = PCA(n_components = 2)
    principalComponents = pca.fit_transform(X)
    principalDF = pd.DataFrame(data = principalComponents, columns = ['pc1', 'pc2'])
+   principalDF.to_csv("principalDF.csv")
    #pca.fit(X)
-   print(principalDF)
+   print(type(principalDF))
    plt.scatter(principalDF['pc1'], principalDF['pc2'])
    plt.show()   
    #return pca

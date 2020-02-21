@@ -932,7 +932,6 @@ import os
 import glob
 def makebook(dataDir = dataDir, figDir = figDir):
     fasta_files = []
-    #os.chdir("../" + dataDir)
     print(" &&& " + os.getcwd())    
     #for file in glob.glob("../" + dataDir + "*.fasta"):
     for file in glob.glob("../" + dataDir + "/*.fasta"):    
@@ -945,13 +944,10 @@ def makebook(dataDir = dataDir, figDir = figDir):
         fig_file = fig_file[0:(len(fig_file) - 6)]
         fig_file = fig_file
         s = g.readseq2(file, dataDir = dataDir)
-        print (" @@@@@@ " + fig_file)
         s2ps2(s, filename = fig_file, d_mm = 1.2, colorfile='../pyprog/colorsBlue2.txt',
               top_margin_cm = 2.0)
         os.chdir("../" + figDir)
         os.system("ps2pdf " + fig_file + ".ps")
-        #fig_file = "../" + figDir + "/" + fig_file[8:len(fig_file)]
-        #os.system("mv " + fig_file + ".pdf " + " ../" + figDir)
     print(os.getcwd())
     os.chdir("../" + figDir)
     pdf_files = []
@@ -964,6 +960,4 @@ def makebook(dataDir = dataDir, figDir = figDir):
         print("Processing " + pdf_files[i])
         os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
         os.system("mv tmp1.pdf tmp.pdf")
-    os.chdir("../pyprog")        
-
-
+    os.chdir("../pyprog")
