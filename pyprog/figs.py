@@ -70,7 +70,13 @@ def F3(x):
     return '{0:0.3f}'.format(x)
 
 # Convert gene sequence to a postscript file
-def s2ps(sequence, sequenceName, filename, width_cm, d_mm, colorfile = "colors.txt", fontsize = 16):
+def s2ps(sequence,
+         sequenceName,
+         filename,
+         width_cm,
+         d_mm,
+         colorfile = "colors.txt",
+         fontsize = 16):
     # Read colors
     black = "0.0  0.0  0.0"
     setcolor = {'A':black, 'C':black, 'G':black, 'T':black, 'a':black, 'c':black, 'g':black, 't':black}
@@ -101,6 +107,7 @@ def s2ps(sequence, sequenceName, filename, width_cm, d_mm, colorfile = "colors.t
     for row in range(rows - 1): # Do the last row separately since it may not be filled
         for col in range(cols):
            f.write(setcolor[sequence[bp]])
+           f.write("\n")
            f.write("newpath\n")
            left   = left_margin_mm + col * d_mm
            right  = left_margin_mm + (col + 1) * d_mm
@@ -117,6 +124,7 @@ def s2ps(sequence, sequenceName, filename, width_cm, d_mm, colorfile = "colors.t
     row = rows - 1 
     for col in range(remaining_pairs):
            f.write(setcolor[sequence[bp]])
+           f.write("\n")
            f.write("newpath\n")
            left   = left_margin_mm + col * d_mm
            right  = left_margin_mm + (col + 1) * d_mm
@@ -331,6 +339,7 @@ def pt2mm(pt):
 def ps(
         fastafile,
         dataDir           = dataDir,
+        figDir            = figDir,
         colorfile         = "colorsBlue3.txt",
           
         paper             = "Letter",     # Type of paper (used to determine paper size)
@@ -359,11 +368,11 @@ def ps(
 
    s = g.readseq2(fastafile, dataDir = dataDir)
 
-   filename = re.sub(' +', '_', s['name'])
+   #filename = re.sub(' +', '_', s['name'])
    
    s2ps2(s,
-         filename,
          dataDir,
+         figDir,
          colorfile,
          paper,
          figure_width_cm,
@@ -430,8 +439,8 @@ def write_rotate_text_macro(f, fontName):
 # Convert a genome to a postscript file
 def s2ps2(
         sequenceData,                   # dictionary {"sequence":<string>, "name":<name of organism>}
-        filename,                       # name of the file to write (e.g., "myseq.ps")
         dataDir           = dataDir,
+        figDir            = figDir,
         colorfile         = "colorsBlue3.txt",
           
         paper             = "Letter",     # Type of paper (used to determine paper size)
@@ -531,7 +540,8 @@ def s2ps2(
     print("figure_height_mm     = " + str(figure_height_mm))    
     print("figure_top_mm        = " + str(figure_top_mm))
     print("figure_bot_mm        = " + str(figure_bot_mm))        
-    
+
+    filename = "../" + figDir + "/" + sequenceData['filename']
     f = open(filename + ".ps", 'w')    
     f.write("%!\n")
     f.write("% DNA sequence visualization for " + name + "\n\n")
@@ -933,31 +943,25 @@ import glob
 def makebook(dataDir = dataDir, figDir = figDir):
     fasta_files = []
     print(" &&& " + os.getcwd())    
-    #for file in glob.glob("../" + dataDir + "*.fasta"):
     for file in glob.glob("../" + dataDir + "/*.fasta"):    
        print(" &&& " + file)
        fasta_files.append(file)
     for file in fasta_files:
-        file_name = file.split("/")
-        file_name = file_name[len(file_name) - 1]
-        fig_file = "../" + figDir + "/" + file_name 
-        fig_file = fig_file[0:(len(fig_file) - 6)]
-        fig_file = fig_file
         s = g.readseq2(file, dataDir = dataDir)
-        s2ps2(s, filename = fig_file, d_mm = 1.2, colorfile='../pyprog/colorsBlue2.txt',
+        s2ps2(s, figDir=figDir, d_mm = 1.2, colorfile='../pyprog/colorsBlue2.txt',
               top_margin_cm = 2.0)
-        os.chdir("../" + figDir)
-        os.system("ps2pdf " + fig_file + ".ps")
-    print(os.getcwd())
     os.chdir("../" + figDir)
+    for file in glob.glob("*.ps"):
+        print("Trying to convert " + file)
+        os.system("ps2pdf " + file)
     pdf_files = []
     for file in glob.glob("*.pdf"): 
        pdf_files.append(file)
     print(pdf_files)
     
-    os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
-    for i in range(2, len(pdf_files)):
-        print("Processing " + pdf_files[i])
-        os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
-        os.system("mv tmp1.pdf tmp.pdf")
+    #os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
+    #for i in range(2, len(pdf_files)):
+    #    print("Processing " + pdf_files[i])
+    #    os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
+    #    os.system("mv tmp1.pdf tmp.pdf")
     os.chdir("../pyprog")

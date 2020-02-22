@@ -143,22 +143,21 @@ def seq2c2(sequence, verbose = False):
              start_index   = i
              starts.append(i)
              caseSensitive = caseSensitive + 'atg'  # indicate that a start seq is noncoding
-             i = i + 3
+             i = i + 3   # We must have read three codons since the triple was ATG
              state = READING_AMINO_ACIDS
           else:
              caseSensitive = caseSensitive + seq[i].lower()
-             i = i + 1
+             i = i + 1   # Read noncoding bases one at a time
        elif state == READING_AMINO_ACIDS:
           codon = seq[i:(i+3)]
-          aa = ''
-          if not codon == '':
-             aa = c2a(codon)
+          #aa = ''
+          #if not codon == '':
+          aa = c2a(codon)
           i = i + 3
-          #print(aa)
           if len(aa) > 0:
-             amino_acids = amino_acids + aa
+             amino_acids   = amino_acids + aa
              caseSensitive = caseSensitive + codon
-          else:                       # read a stop
+          else:                       # read a stop or an unrecognized codon.
              if (verbose):
                 print ("Start/Stop: ", start_index, i-3)
              stops.append(i-3)
@@ -166,13 +165,17 @@ def seq2c2(sequence, verbose = False):
              state = WAITING_FOR_START
     
     # Compute lengths of coding and noncoding sections
-    coding_length = 0
+    coding_length    = 0
     noncoding_length = 0
     for x in caseSensitive:
        if x == 'A' or x == 'C' or x == 'G' or x == 'T':
           coding_length = coding_length + 1
-       if x == 'a' or x == 'c' or x == 'g' or x == 't':
+       elif x == 'a' or x == 'c' or x == 'g' or x == 't':
           noncoding_length = noncoding_length + 1
+       else:
+          # If other characters occur in the sequence (such as N), assume they
+          # are noncoding.
+          noncoding_length = noncoding_length + 1 
     
     coding_fraction    = coding_length / len(seq)
     noncoding_fraction = noncoding_length / len(seq)
@@ -183,9 +186,18 @@ def seq2c2(sequence, verbose = False):
     # compute number of exons
     exons = introns + 1
 
-    return {"name":name, "amino_acids":amino_acids, "starts":starts, "stops":stops, "cs":caseSensitive,
-            "introns":introns, "coding_length":coding_length, "coding_fraction":coding_fraction,
-            "exons":exons, "noncoding_length":noncoding_length, "noncoding_fraction":noncoding_fraction}
+    return {"name":name,
+            "filename":sequence['filename'],
+            "amino_acids":amino_acids,
+            "starts":starts,
+            "stops":stops,
+            "cs":caseSensitive,
+            "introns":introns,
+            "coding_length":coding_length,
+            "coding_fraction":coding_fraction,
+            "exons":exons,
+            "noncoding_length":noncoding_length,
+            "noncoding_fraction":noncoding_fraction}
 
 
 # Process all data files.
@@ -231,10 +243,10 @@ def pf(dataDir = dataDir):
 #      Y1: percent of coding region that is amino acid Y
 #      W1: percent of coding region that is amino acid W
 #
-def stat(seq):
+def stat(seq, verbose=False):
    results = {}
-   #print(seq.keys())
-   print(seq['name'])
+   if verbose:
+      print(seq['filename'])
    results['length'] =  len(seq['cs'])
    results['i']      = seq['coding_fraction']
    results['e']      = seq['noncoding_fraction']
@@ -282,7 +294,7 @@ def stat(seq):
        results[key] = results[key] + (1 / len(seq['amino_acids']))
    return (results)
 
-def test3(filename):
+def test3(filename, dataDir = dataDir):
    seq  = readseq2(filename, dataDir = dataDir)
    seq1 = seq2c2(seq)
    coding_length    = 0
@@ -295,14 +307,14 @@ def test3(filename):
    print ([coding_length, seq1['coding_length'], coding_length - seq1['coding_length']])
    print ([noncoding_length, seq1['noncoding_length'], noncoding_length - seq1['noncoding_length']])
 
-def test2(filename):
+def test2(filename, dataDir = dataDir):
    seq  = readseq2(filename, dataDir = dataDir)
    seq1 = seq2c2(seq)
    st   = stat(seq1)
    print([st['A'] + st['C'] + st['G'] + st['T']])   
    print([st['a'] + st['c'] + st['g'] + st['t']])   
     
-def test1(filename):
+def test1(filename, dataDir = dataDir):
    seq  = readseq2(filename, dataDir = dataDir)
    seq1 = seq2c2(seq)
    A  = C  = G  = T  = 0
@@ -352,7 +364,7 @@ def readseq2(filename, verbose=False, dataDir = dataDir):
    line      = f.readline()
    n1        = line.find(' ')  # Find the first space character in the first line
    n         = len(line)
-   shortname = line[0:n]
+   shortname = line[1:n1]      # Chop off the initial > character.
    name      = line[(n1+1):n]
    for line in f:
       seq = seq + line.rstrip()
