@@ -1,15 +1,21 @@
 # GeneLink test code.
 
+import os
+
 dataDir = "data/"
 
-import os
-# list the available data files
+# List the .fasta files in a specified directory: ../dataDir
+# It may be useful to include other extensions that are used
+# for fasta files (e.g., fns)
 def ld(verbose=True, dataDir = dataDir):
    files = os.listdir("../" + dataDir)
-   if verbose:
-      for f in files:
-         print (f)
-   return files
+   fileList = []
+   for file in files:
+      if file.endswith(".fasta"):  
+         fileList.append(file)
+         if verbose:
+            print (file)
+   return filesList
 
 # Aminio acid code letter to name
 def a2n(a = 'F'):
@@ -57,6 +63,8 @@ def a2n(a = 'F'):
       return "glycine"
 
 # Transform a codon to an amino acid code letter.  Return '' for stop codons.
+# Note that 'ATG' returns 'M' (Methionine) rather than 'Start' since it is
+# assumed that the function will be called only with codons occuring in introns.
 def c2a(c = 'TTT'):
     if len(c) < 3:
        return ''
@@ -64,8 +72,10 @@ def c2a(c = 'TTT'):
         return 'F'
     elif c in ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG']:
         return 'L'
-    elif c in ['ATT', 'ATC', 'ATA', 'ATG']:
+    elif c in ['ATT', 'ATC', 'ATA']:
         return 'I'
+    elif c in ['ATG']: # Note that ATG is also the start codon
+        return 'M'
     elif c in ['GTT', 'GTC', 'GTA', 'GTG']:
         return 'V'
     elif c in ['TCT', 'TCC', 'TCA', 'TCG']:
@@ -100,50 +110,15 @@ def c2a(c = 'TTT'):
         return 'S'
     elif c in ['GGT', 'GGC', 'GGA', 'GGG']:
         return 'G'
-    elif c in ['TAA', 'TAG']:    # Stop
+    elif c in ['TAA', 'TAG']:    # Ochre/Amber Stop
         return ''
-    elif c in ['TGA']:           # Stop
+    elif c in ['TGA']:           # Opal Stop
         return ''
     return ''
 
-     
-# Transform a DNA sequence into a sequence of amino acids.
-# Ignore base pairs that are not between start and stop codons.
-def seq2c(seq, verbose = False):
-    WAITING_FOR_START   = 0
-    READING_AMINO_ACIDS = 1
-    n = len(seq)
-    if n < 9:
-       return
-    amino_acids = ''
-    triple      = ''
-    state       = WAITING_FOR_START
-    start_index = 0
-    i           = 0
-    while i < len(seq):
-       #print (i, state, triple)
-       if state == WAITING_FOR_START:
-          triple = seq[i:(i+3)]       # read three base pairs
-          if triple == 'ATG':
-             start_index = i             
-             i = i + 3
-             state = READING_AMINO_ACIDS
-          else:
-             i = i + 1
-       elif state == READING_AMINO_ACIDS:
-          codon = seq[i:(i+3)]
-          aa = c2a(codon)
-          i = i + 3
-          if len(aa) > 0:
-             amino_acids = amino_acids + aa
-          else:                       # read a stop
-             if (verbose):
-                print ("Start/Stop: ", start_index, i-3)
-             state = WAITING_FOR_START
-    return amino_acids
-
-# Transform a DNA sequence into a sequence of amino acids.
-# Ignore base pairs that are not between start and stop codons.
+# Transform a DNA sequence into a sequence of amino acids.  The input
+# should be a string of ACGT (or acgt) but may contain other characters
+# (which are ignored).
 def seq2c2(sequence, verbose = False):
     seq  = sequence['sequence']
     name = sequence['name']
@@ -357,22 +332,10 @@ def test1(filename):
    print ([len(seq['sequence']), len(seq1['cs']), len(seq['sequence']) - len(seq1['cs'])])
    print ([len(seq['sequence']), seq1['coding_length'] + seq1['noncoding_length'], len(seq['sequence']) - seq1['coding_length'] - seq1['noncoding_length']])
    
-
-# Read a DNA sequence from a FASTA formatted file.  The first
-# line must be a comment line as it is ignored.
-def readseq(filename, dataDir = dataDir):
-   path = "../" + dataDir + "/" + filename
-   seq = ""
-   f = open(path, 'r')
-   line = f.readline()
-   for line in f:
-      seq = seq + line.rstrip()
-   f.close()
-   return seq
-
 # Read A DNA sequence from a FASTA formatted file.  The first
 # line read should be of the form
-# >string0 string1, string2
+# >string0 string1
+# string0 is used as the file name
 # string1 is assumed to be the name of the organism
 # It is also assumed that the data file is in dataDir where
 # dataDir is defined at the top of this file.
@@ -384,20 +347,19 @@ def readseq(filename, dataDir = dataDir):
 #         name    : the name of the organism
 def readseq2(filename, verbose=False, dataDir = dataDir):
    path = "../" + dataDir + "/" + filename
-   seq = ""
-   f = open(path, 'r')
-   line = f.readline()
-   n1 = line.find(' ')
-   n2 = line.find(',')
-   name = line[(n1+1):n2]
+   seq       = ""
+   f         = open(path, 'r')
+   line      = f.readline()
+   n1        = line.find(' ')  # Find the first space character in the first line
+   n         = len(line)
+   shortname = line[0:n]
+   name      = line[(n1+1):n]
    for line in f:
       seq = seq + line.rstrip()
    f.close()
    if verbose:
       print(filename + " read")
-   n = len(filename)
-   print("***** " + filename)
-   return {"sequence":seq, "name":name, "filename":filename[0:(n-len(".fasta"))]}
+   return {"sequence":seq, "name":name, "filename":shortname}
 
 
 # Read all the fasta files in a specified file list.
