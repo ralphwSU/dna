@@ -86,6 +86,7 @@ def s2ps(sequence,
     for line in lines:
         parts = line.strip().split(' ')
         setcolor[parts[0]] = parts[1] + "  " +  parts[2] + "  " +  parts[3] + "  setrgbcolor\n"
+    setcolor['other'] = "1.0 1.0 1.0 setrgbcolor\n"
     f.close()
 
     f = open(filename + ".ps", 'w')
@@ -106,7 +107,11 @@ def s2ps(sequence,
     bp = 0
     for row in range(rows - 1): # Do the last row separately since it may not be filled
         for col in range(cols):
-           f.write(setcolor[sequence[bp]])
+           if not sequence[bp] in setcolor.keys():
+               f.write("% Found " + sequence[bp] + "\n")
+               f.write(setcolor['other'])
+           else:
+               f.write(setcolor[sequence[bp]])
            f.write("\n")
            f.write("newpath\n")
            left   = left_margin_mm + col * d_mm
@@ -123,7 +128,12 @@ def s2ps(sequence,
     remaining_pairs = len(sequence) - bp
     row = rows - 1 
     for col in range(remaining_pairs):
-           f.write(setcolor[sequence[bp]])
+           if not sequence[bp] in setcolor.keys():
+               print("Found " + sequence[bp] + "\n")
+               f.write("% Found " + sequence[bp] + "\n")               
+               f.write(setcolor['other'])
+           else:        
+              f.write(setcolor[sequence[bp]])
            f.write("\n")
            f.write("newpath\n")
            left   = left_margin_mm + col * d_mm
@@ -264,6 +274,7 @@ def readColorFile(colorfile):
     for line in lines:
         parts = line.strip().split(' ')
         setcolor[parts[0]] = parts[1] + "  " +  parts[2] + "  " +  parts[3] + "  setrgbcolor\n"
+    setcolor['other'] = "1.0 1.0 1.0 setrgbcolor\n"        
     f.close()
     return setcolor
 
@@ -589,10 +600,11 @@ def s2ps2(
           if (page == pages) and (row == (rows_on_last_page - 1)):
               cols_this_row = bp_on_last_row
           for col in range(cols_this_row):
-             if (sequence[bp] in 'nrswy'):
-                f.write(white)
-             else:
-                f.write(setcolor[sequence[bp]])
+             if not sequence[bp] in setcolor.keys():
+                  f.write("% Found " + sequence[bp] + "\n")               
+                  f.write(setcolor['other'])
+             else:                      
+                  f.write(setcolor[sequence[bp]])
              f.write("newpath\n")
              left   = figure_left_mm + col * d_mm
              right  = figure_left_mm + (col + 1) * d_mm
@@ -952,14 +964,14 @@ def makebook(dataDir = dataDir, figDir = figDir):
               top_margin_cm = 2.0)
     os.chdir("../" + figDir)
     for file in glob.glob("*.ps"):
-        print("Trying to convert " + file)
+        print("Converting " + file)
         os.system("ps2pdf " + file)
     pdf_files = []
     for file in glob.glob("*.pdf"): 
        pdf_files.append(file)
     print(pdf_files)
     
-    #os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
+    os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
     #for i in range(2, len(pdf_files)):
     #    print("Processing " + pdf_files[i])
     #    os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
