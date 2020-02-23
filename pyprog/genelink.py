@@ -122,6 +122,8 @@ def c2a(c = 'TTT'):
 def seq2c2(sequence, verbose = False):
     seq  = sequence['sequence']
     name = sequence['name']
+    if name.find("complete genome") > 0:
+       name = name[0:(len(name) - len("complete genome"))]
     WAITING_FOR_START   = 0
     READING_AMINO_ACIDS = 1
     n = len(seq)
@@ -366,6 +368,10 @@ def readseq2(filename, verbose=False, dataDir = dataDir):
    n         = len(line)
    shortname = line[1:n1]      # Chop off the initial > character.
    name      = line[(n1+1):n]
+   #if name.find("complete genome") > 0:
+   #   name = name[0:(len(name) - len("complete genome") - 1)]
+   #if name.find("whole_genome") > 0:
+   #   name = name[0:(len(name) - len("whole_genome") - 1)]         
    for line in f:
       seq = seq + line.rstrip()
    f.close()

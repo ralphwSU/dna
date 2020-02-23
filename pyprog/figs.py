@@ -952,7 +952,32 @@ def s2ps2(
 
 import os
 import glob
-def makebook(dataDir = dataDir, figDir = figDir):
+def makebook(dataDir = dataDir,
+             figDir = figDir,
+             colorfile         = "colorsBlue3.txt",
+             paper             = "Letter",     # Type of paper (used to determine paper size)
+             figure_width_cm   = 13.0,         # Width of the genome plot.
+             top_margin_cm     = 1.5,          # Width of the top margin on each page.
+             legend_width_cm   = 3.2,          # Width of the bottom color legend        
+             d_mm              = 1.0,          # Size in mm of the squares
+             fontName          = "Times-Roman",
+             nameFontSize      = 16,           # Size of the font used for the organism name
+             nameShiftFactor   = 1.5,          # Controls how much to shift  organism name above the image
+             pageFontSize      = 10,           # Size of the page number font
+             pageShiftFactor_h = 0.25,         # Controls how far into  right margin to print page number
+             pageShiftFactor_v = 0.6,          # Controls how far below baseline to print the page number
+
+             statFontSize      = 12,           # Size of the font used to print statistics
+             statShiftFactor_v = 0.3,          # Controls how far away from the frame to shift the stats
+             statShiftFactor_h = 0.1,          # Controls how far away from the frame to shift the stats
+             frameSepFactor    = 0.5,          # Controls separation between the two frames
+
+             nonCoding         = False,        # If True then noncoding regions are colored differently
+
+             frameboxes        = 2,            # number of frames to put around the graphic
+             gap_mm            = 1.0,          # size of gap to put between frames
+             framestroke       = 0.5           # stroke width of the frames
+             ):
     fasta_files = []
     print(" &&& " + os.getcwd())    
     for file in glob.glob("../" + dataDir + "/*.fasta"):    
@@ -960,8 +985,14 @@ def makebook(dataDir = dataDir, figDir = figDir):
        fasta_files.append(file)
     for file in fasta_files:
         s = g.readseq2(file, dataDir = dataDir)
-        s2ps2(s, figDir=figDir, d_mm = 1.2, colorfile='../pyprog/colorsBlue2.txt',
-              top_margin_cm = 2.0)
+        s2ps2(s, figDir=figDir, colorfile=colorfile, figure_width_cm=figure_width_cm,
+              top_margin_cm=top_margin_cm, legend_width_cm=legend_width_cm,
+              d_mm = d_mm, fontName=fontName, nameFontSize=nameFontSize, nameShiftFactor=nameShiftFactor,
+              pageFontSize=pageFontSize, pageShiftFactor_h=pageShiftFactor_h,
+              pageShiftFactor_v=pageShiftFactor_v, statFontSize=statFontSize,
+              statShiftFactor_v=statShiftFactor_v, statShiftFactor_h=statShiftFactor_h,
+              frameSepFactor=frameSepFactor, nonCoding=nonCoding, frameboxes=frameboxes,
+              gap_mm=gap_mm, framestroke=framestroke)
     os.chdir("../" + figDir)
     for file in glob.glob("*.ps"):
         print("Converting " + file)
@@ -972,8 +1003,8 @@ def makebook(dataDir = dataDir, figDir = figDir):
     print(pdf_files)
     
     os.system("pdftk A=" + pdf_files[0] + " B=" + pdf_files[1] + " cat A B output tmp.pdf")
-    #for i in range(2, len(pdf_files)):
-    #    print("Processing " + pdf_files[i])
-    #    os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
-    #    os.system("mv tmp1.pdf tmp.pdf")
+    for i in range(2, len(pdf_files)):
+        print("Processing " + pdf_files[i])
+        os.system("pdftk A=tmp.pdf B=" + pdf_files[i] + " cat A B output tmp1.pdf")
+        os.system("mv tmp1.pdf tmp.pdf")
     os.chdir("../pyprog")
