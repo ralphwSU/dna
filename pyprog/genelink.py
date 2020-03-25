@@ -2,6 +2,11 @@
 
 import os
 
+# Assume that the project file structure is:
+# dna/
+#    data/     # There can be multiple data directories 
+#    pyprog/
+
 dataDir = "data/"
 
 # List the .fasta files in a specified directory: ../dataDir
@@ -48,9 +53,9 @@ def a2n(a = 'F'):
    elif a == 'K':
       return "lysine"
    elif a == 'D':
-      return "aspartic"
+      return "aspartic acid"
    elif a == 'E':
-      return "glutamic Acid"
+      return "glutamic acid"
    elif a == 'C':
       return "cysteine"
    elif a == 'W':
@@ -65,6 +70,9 @@ def a2n(a = 'F'):
 # Transform a codon to an amino acid code letter.  Return '' for stop codons.
 # Note that 'ATG' returns 'M' (Methionine) rather than 'Start' since it is
 # assumed that the function will be called only with codons occuring in introns.
+# According to [Science  323(5911), 259-61. 2009 Jan 9] and possibly other references,
+# the stop codon TGA can code for an amino acid in certain cases.  The code
+# here does nott account for such insances.
 def c2a(c = 'TTT'):
     if len(c) < 3:
        return ''
@@ -110,9 +118,11 @@ def c2a(c = 'TTT'):
         return 'S'
     elif c in ['GGT', 'GGC', 'GGA', 'GGG']:
         return 'G'
-    elif c in ['TAA', 'TAG']:    # Ochre/Amber Stop
+    elif c in ['TAA', 'TAG']:    # Ochre stop
         return ''
-    elif c in ['TGA']:           # Opal Stop
+    elif c in ['TAG']:           # Amber Stop
+        return ''
+    elif c in ['TGA']:           # Opal Stop (see above comments about this codon)
         return ''
     return ''
 
@@ -120,49 +130,81 @@ def c2a(c = 'TTT'):
 # should be a string of ACGT (or acgt) but may contain other characters
 # (which are ignored).
 def seq2c2(sequence, verbose = False):
-    seq  = sequence['sequence']
-    name = sequence['name']
+    seq    = sequence['sequence']
+    name   = sequence['name']
+    header = sequence['header']
+    
     WAITING_FOR_START   = 0
     READING_AMINO_ACIDS = 1
+    
     n = len(seq)
-    if n < 9:
-       return
-    amino_acids   = ''
+
+    amino_acids   = []
     triple        = ''
-    starts        = []
-    stops         = []
-    caseSensitive = ''    
+                                      # |
+                                      # v
+    starts        = []                # ATG list of indices for the A in each start sequence ATG
+    stops         = []                # TGA list of indices for the first base modelule in each stot sequence
+    
+    caseSensitive = ''                # This will hold a case sensitive encoding of the sequence
+    introns       = []                # This will contain a list of the introns (each of which is a list)
+    n_introns     = 0
+    n_expons      = 0
+    error_char_positions = []         # List of positions that are not A, C, G or T
+    error_chars   = []                # List of the erroneous characters
+    error_codes   = []
     state       = WAITING_FOR_START
     start_index = 0
+    
     i           = 0      # Where we are in the sequence
+    
     while i < len(seq):
-       #print (i, state, triple)
        if state == WAITING_FOR_START:
-          triple = seq[i:(i+3)]       # read three base pairs
-          if triple == 'ATG':
-             start_index   = i
-             starts.append(i)
-             caseSensitive = caseSensitive + 'atg'  # indicate that a start seq is noncoding
-             i = i + 3   # We must have read three codons since the triple was ATG
-             state = READING_AMINO_ACIDS
+          amino_acid = ''
+          if (i + 3) >= len(seq):
+             caseSensitive = caseSensitive + seq[i:len(seq)].lower()
+             i = len(seq)
           else:
-             caseSensitive = caseSensitive + seq[i].lower()
-             i = i + 1   # Read noncoding bases one at a time
+             triple = seq[i:(i+3)]       # read three base pairs
+             if triple == 'ATG':
+                start_index   = i
+                starts.append(i)
+                caseSensitive = caseSensitive + 'atg'  # indicate that a start seq is noncoding
+                i = i + 3   # We must have read three codons since the triple was ATG
+                state = READING_AMINO_ACIDS
+             else:
+                caseSensitive = caseSensitive + seq[i].lower()
+                if seq[i] not in 'ACGTacgt':
+                   error_char_positions.append(i)
+                   error_chars.append(seq[i])
+                i = i + 1   # Read noncoding bases one at a time
        elif state == READING_AMINO_ACIDS:
-          codon = seq[i:(i+3)]
-          #aa = ''
-          #if not codon == '':
-          aa = c2a(codon)
-          i = i + 3
-          if len(aa) > 0:
-             amino_acids   = amino_acids + aa
-             caseSensitive = caseSensitive + codon
-          else:                       # read a stop or an unrecognized codon.
-             if (verbose):
-                print ("Start/Stop: ", start_index, i-3)
-             stops.append(i-3)
-             caseSensitive = caseSensitive + codon.lower()
-             state = WAITING_FOR_START
+          if (i + 3) >= len(seq):
+             caseSensitive = caseSensitive + seq[i:n]
+             i = len(seq)
+             amino_acids.append(amino_acid)
+             error_codes.append('Incomplete final codon of length ' + str(n - i) + " in coding region;")
+          else:
+             codon = seq[i:(i+3)]
+             aa = c2a(codon)
+
+             codon_ok = True             
+             for j in range(i, i+3):
+                if seq[j] not in 'ACGTacgt':
+                   error_char_positions.append(i)
+                   error_chars.append(seq[j])
+                   codon_ok = False
+             i = i + 3                
+             if len(aa) > 0:
+                amino_acid   = amino_acid + aa
+                caseSensitive = caseSensitive + codon
+             else:                       # read a stop or an unrecognized codon.
+                if (verbose):
+                   print ("Start/Stop: ", start_index, i-3)
+                stops.append(i-3)
+                caseSensitive = caseSensitive + codon.lower()
+                amino_acids.append(amino_acid)
+                state = WAITING_FOR_START
     
     # Compute lengths of coding and noncoding sections
     coding_length    = 0
@@ -187,17 +229,22 @@ def seq2c2(sequence, verbose = False):
     exons = introns + 1
 
     return {"name":name,
+            "header":sequence['header'],
             "filename":sequence['filename'],
             "amino_acids":amino_acids,
             "starts":starts,
             "stops":stops,
-            "cs":caseSensitive,
+            "sequence":caseSensitive,
+            "introns":introns,
             "introns":introns,
             "coding_length":coding_length,
             "coding_fraction":coding_fraction,
             "exons":exons,
             "noncoding_length":noncoding_length,
-            "noncoding_fraction":noncoding_fraction}
+            "noncoding_fraction":noncoding_fraction,
+            "error_chars":error_chars,
+            "error_char_positions":error_char_positions,
+            "error_codes":error_codes}
 
 
 # Process all data files.
@@ -343,6 +390,14 @@ def test1(filename, dataDir = dataDir):
    print ([T, T1, T - T1]) 
    print ([len(seq['sequence']), len(seq1['cs']), len(seq['sequence']) - len(seq1['cs'])])
    print ([len(seq['sequence']), seq1['coding_length'] + seq1['noncoding_length'], len(seq['sequence']) - seq1['coding_length'] - seq1['noncoding_length']])
+
+# Extract a short name and full name from the header of a fasta file.
+def getName(header):
+   n1        = header.find(' ')  # Find the first space character in the first line
+   n         = len(header)
+   shortname = header[1:n1]      # Chop off the initial > character.
+   name      = header[(n1+1):n]
+   return shortname, name
    
 # Read A DNA sequence from a FASTA formatted file.  The first
 # line read should be of the form
@@ -361,17 +416,17 @@ def readseq2(filename, verbose=False, dataDir = dataDir):
    path = "../" + dataDir + "/" + filename
    seq       = ""
    f         = open(path, 'r')
-   line      = f.readline()
-   n1        = line.find(' ')  # Find the first space character in the first line
-   n         = len(line)
-   shortname = line[1:n1]      # Chop off the initial > character.
-   name      = line[(n1+1):n]
+   header    = f.readline().strip() # Take the entire first line as header
+
+   shortname, name = getName(header)
+   
    for line in f:
-      seq = seq + line.rstrip()
+      seq = seq + line.rstrip() # Remove white space from the end of the file
    f.close()
    if verbose:
       print(filename + " read")
-   return {"sequence":seq, "name":name, "filename":shortname}
+   print (len(filename) - len('.fasta'))
+   return {"sequence":seq, "name":name, "filename":filename, "header":header}
 
 
 # Read all the fasta files in a specified file list.
