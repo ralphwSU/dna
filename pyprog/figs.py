@@ -493,7 +493,7 @@ def s2ps2(
     sequence  = sequenceData['sequence']
     sequence1 = g.seq2c2(sequenceData)
     stats     = g.stat(sequence1)
-    sequence = sequence1['cs']
+    sequence = sequence1['sequence']
     name     = sequenceData['name']
     setcolor = readColorFile(colorfile)
 
