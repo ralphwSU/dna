@@ -1,0 +1,89 @@
+\documentclass[11pt]{article}
+
+% Specify the margins and other formatting.
+\setlength{\textwidth}{6.4in}
+\setlength{\textheight}{9in}
+\setlength{\oddsidemargin}{0pt}
+\setlength{\evensidemargin}{0pt}
+\setlength{\topmargin}{0pt}
+\setlength{\hoffset}{-0.0in}
+\setlength{\voffset}{-.6in}
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+
+
+\usepackage[T1]{fontenc}
+
+% This is loaded by PSTricks but if you comment out PSTricks, you can uncomment this line
+\usepackage{graphicx}     
+
+% Load the PSTricks graphics package.  See http://tug.org/PSTricks/main.cgi
+\usepackage{pstricks,pst-grad,pst-text,pst-node,multido,pst-plot,calc,pst-3dplot}
+
+% The amsmath package has some useful commands for formatting mathematics
+\usepackage{amsmath}
+
+% Include the listings package if you want to include large sections of code.
+\usepackage{listings}
+
+% This typesets figures and tables with captions and keeps track of the numbering.
+\usepackage{float}
+
+% The xy package is used for formatting commutative diagrams.  You probably won't need this.
+%\input xy
+%\xyoption{all}
+
+% Use the makeidx package if you want to include an index.  You can comment these lines out
+% if you don't want an index.
+\usepackage{makeidx}
+\makeindex
+
+% The hyperref package inserts links into the pdf.  
+\definecolor{MyLinkColor}{rgb}{.1,.2,1}
+\definecolor{MyCiteColor}{rgb}{.1,1,.2}
+\definecolor{MyURLColor}{rgb}{.6,.1,.1}
+\usepackage[backref=true,pagebackref=false,hyperindex,colorlinks=true,
+  linkcolor=MyLinkColor,urlcolor=MyURLColor,citecolor=MyCiteColor]{hyperref}
+
+% The tweaklist package provides a simple interface for changing spacing
+% used in the itemize and enumerate environments.  
+% Comment this out if you don't care to use tweaklist.
+\usepackage{tweaklist}
+\renewcommand{\itemhook}{\setlength{\parskip}{3pt}\setlength{\parsep}%
+{1pt}\setlength{\topsep}{1pt}\setlength{\itemsep}{1pt}}
+\renewcommand{\enumhook}{\setlength{\parskip}{3pt}\setlength{\parsep}%
+{1pt}\setlength{\topsep}{1pt}\setlength{\itemsep}{1pt}}
+
+% Here is where the printed material starts.
+% It starts with a title page.
+\begin{document}
+
+
+\lstset{language=Python, basicstyle=\scriptsize, numbers=left, numberstyle=\tiny, commentstyle=\color{blue}, xleftmargin=22pt,frame=single}
+
+
+\lstinputlisting[breaklines=true]{genelink.py}
+
+\vfill
+\eject
+
+\lstinputlisting[breaklines=true]{figs.py}
+\vfill
+\eject
+
+\lstinputlisting[breaklines=true]{mmeta.py}
+\vfill
+\eject
+
+\lstinputlisting[breaklines=true]{ce.py}
+\vfill
+\eject
+
+\lstinputlisting[breaklines=true]{extract.py}
+\vfill
+\eject
+
+\lstinputlisting[breaklines=true]{edit.py}
+\vfill
+\eject
+\end{document}

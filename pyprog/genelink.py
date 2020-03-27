@@ -67,15 +67,16 @@ def a2n(a = 'F'):
    elif a == 'G':
       return "glycine"
 
-# Transform a codon to an amino acid code letter.  Return '' for stop codons.
-# Note that 'ATG' returns 'M' (Methionine) rather than 'Start' since it is
+# Transform a codon to an amino acid code letter.  Return 'stop' for stop codons.
+# Note that 'ATG' returns 'M' (Methionine) rather than 'start' since it is
 # assumed that the function will be called only with codons occuring in introns.
 # According to [Science  323(5911), 259-61. 2009 Jan 9] and possibly other references,
 # the stop codon TGA can code for an amino acid in certain cases.  The code
-# here does not account for such insances.
+# here does not account for such insances.  If the codon contains letters other than
+# ACGTacgt or is not three characters long, 'error' is returned.
 def c2a(c = 'TTT'):
-    if len(c) < 3:
-       return ''
+    if not (len(c) == 3):
+       return 'error'
     if c in ['TTT', 'TTC']:
         return 'F'
     elif c in ['TTA', 'TTG', 'CTT', 'CTC', 'CTA', 'CTG']:
@@ -129,37 +130,57 @@ def c2a(c = 'TTT'):
 # Transform a DNA sequence into a sequence of amino acids.  The input
 # should be a string of ACGT (or acgt) but may contain other characters
 # (which are ignored).
+# Inputs:
+#   sequence: a dictionary with the following keys
+#      name    : name of the organism
+#      header  : header from the file
+#      filename: name of the file from which the data was read
+#      sequence: sequence of base molecules (ACGTacgt)
+#   verbose : True if debugging information should be printed during processing
+# Returns:
+#   a dictionary with the following keys:
+#      name                : name of the organism
+#      header              : header from the file
+#      filename            : name of the file from which the data was read
+#      amino_acids         : list of amino acid strings
+#      starts              : positions of the first characters in start sequences
+#      stops               : positions of the first characters in stop sequences
+#      sequence            : case-sensitive sequence (upper=coding/exon, lower=non-coding/exon)
+#      introns             : number of introns 
+#      exons               : number of exons 
+#      noncoding_length    : Length of the sequence in non-coding regions
+#      noncoding_fraction  : Fraction of the sequence in non-coding regions
+#      error_chars         : Non ACGTacgt characters in the sequence
+#      error_char_positions: Positions of non ACGTacgt characters in the sequence
+#      error_codes         : Text descriptions of the errors
 def seq2c2(sequence, verbose = False):
     seq    = sequence['sequence']
-    n      = len(seq)    
+    #n      = len(seq)    
     name   = sequence['name']
     header = sequence['header']
 
-    amino_acids   = []
-    triple        = ''
+    amino_acids   = []        # This will be a list of strings
+    #triple        = ''
 
     # Stop and start indices are stored as the index of first molecule in the codon.
-    # For example, each would be stored as index 7 in the following:
-    # ATG    (start codon)
-    # TGA    (a stop codon)
-    # 789
-    starts        = []        # list of indices the start codons ATG
-    stops         = []        # list of indices the stop codons
-    
-    caseSensitive = ''        # This will hold case sensitive encoding (cap = coding)
-    introns       = []        # This will contain a list of introns (each is a string)
-    n_introns     = 0
-    n_expons      = 0
+    # For example, each would be stored as index 4 in the following:
+    # ATG...    (start codon)
+    # TGA...    (a stop codon)
+    # 456789
+    starts               = [] # list of indices the start codons ATG
+    stops                = [] # list of indices the stop codons
+    caseSensitive        = '' # This will hold case sensitive encoding (cap = coding)
+    noncoding_length     = 0
+    coding_length        = 0
     error_char_positions = [] # List of positions that are not A, C, G or T
-    error_chars   = []        # List of the erroneous characters
-    error_codes   = []
+    error_chars          = [] # List of the erroneous characters
+    error_codes          = []
     
     # State of the calculation
-    WAITING_FOR_START   = 0
-    READING_AMINO_ACIDS = 1
-    state               = WAITING_FOR_START
-    start_index         = 0
-    i                   = 0  # Current position in the sequence.
+    WAITING_FOR_START    = 0
+    READING_AMINO_ACIDS  = 1
+    state                = WAITING_FOR_START
+    i                    = 0  # Current position in the sequence.
     
     while i < len(seq):
        if state == WAITING_FOR_START:
@@ -169,20 +190,22 @@ def seq2c2(sequence, verbose = False):
           if (i + 3) > len(seq):   # Can't read a full codon.
              # We are in a noncoding region.  Finish off the sequence in lower case.
              caseSensitive = caseSensitive + seq[i:len(seq)].lower()
+             noncoding_length = noncoding_length + (len(seq) - i)
              i = len(seq)
           else:                     # Can read a full codon.
              triple = seq[i:(i+3)]  # Read next codon.
              if triple == 'ATG':
-                #start_index   = i
                 starts.append(i)
-                caseSensitive = caseSensitive + 'atg'  #  start seq is noncoding
-                i = i + 3   # We must have read three bases since the triple was ATG
+                caseSensitive    = caseSensitive + 'atg'  #  start seq is noncoding
+                noncoding_length = noncoding_length + 3
+                i                = i + 3   # We read three bases since the triple was ATG
                 state = READING_AMINO_ACIDS
              else: # Codon was not a start sequence
 
                 # Add the character to the sequence even if it isn't among ACGTacgt.
                 # Note that some files already use upper/lower case.
-                caseSensitive = caseSensitive + seq[i].lower()
+                noncoding_length = noncoding_length + 1
+                caseSensitive    = caseSensitive + seq[i].lower()
 
                 # Some files have characters (errors?) not among ACGTacgt.
                 if seq[i] not in 'ACGTacgt': 
@@ -194,13 +217,14 @@ def seq2c2(sequence, verbose = False):
        elif state == READING_AMINO_ACIDS:
           if (i + 3) >= len(seq): # In coding region but can't read a full codon.
              # We are in a coding region.  Finish off the sequence in upper case.
-             caseSensitive = caseSensitive + seq[i:n].upper()
+             caseSensitive = caseSensitive + seq[i:len(seq)].upper()
+             coding_length = coding_length + (len(seq) - i)
              i = len(seq)
 
              # We can't read another amino acid since there aren't three bases left.  
              # Add what we have to the list of amino acids but also add an error code.
              amino_acids.append(amino_acid)
-             error_codes.append('Incomplete final codon of length ' + str(len(seq) - i) +
+             error_codes.append('Incomplete final codon of length ' + str(len(seq)-i+1) +
                                 " in coding region;")
              
           else:                      # Can read a full codon.
@@ -210,7 +234,8 @@ def seq2c2(sequence, verbose = False):
 
              if aa == 'stop':        # We read a stop.
                 stops.append(i-3)
-                caseSensitive = caseSensitive + codon.lower()
+                caseSensitive    = caseSensitive + codon.lower()
+                noncoding_length = noncoding_length + 3
                 amino_acids.append(amino_acid)
                 state = WAITING_FOR_START
              else:                   # Read either an amino acid or an error.
@@ -221,25 +246,14 @@ def seq2c2(sequence, verbose = False):
                    # Add a blank to the amino acid if we read three bases in a coding 
                    # region but at least one base is not among ACGTacgt.
                    amino_acid    = amino_acid + ' '
-                   error_codes.append("Read codon " + codon + " at position " + str(i-1) +
-                                      " in coding region " + str(len(introns)+1) + "; ")
+                   error_codes.append("Read codon " + codon + " at position " +
+                                      str(i-1) + " in coding region " + 
+                                      str(len(amino_acids)+1) + "; ")
 
                 # Keep upper case (coding) even if one or more bases was not among ACGTacgt.
                 caseSensitive = caseSensitive + codon.upper()
+                coding_length = coding_length + 3
        
-    # Compute lengths of coding and noncoding sections
-    coding_length    = 0
-    noncoding_length = 0
-    for x in caseSensitive:
-       if x == 'A' or x == 'C' or x == 'G' or x == 'T':
-          coding_length = coding_length + 1
-       elif x == 'a' or x == 'c' or x == 'g' or x == 't':
-          noncoding_length = noncoding_length + 1
-       else:
-          # If other characters occur in the sequence (such as N), assume they
-          # are noncoding.
-          noncoding_length = noncoding_length + 1 
-    
     coding_fraction    = coding_length / len(seq)
     noncoding_fraction = noncoding_length / len(seq)
 
@@ -247,7 +261,7 @@ def seq2c2(sequence, verbose = False):
     introns = len(starts)
     
     # compute number of exons
-    exons = introns + 1
+    exons = len(stops) + 1
 
     return {"name":name,
             "header":sequence['header'],
@@ -256,7 +270,6 @@ def seq2c2(sequence, verbose = False):
             "starts":starts,
             "stops":stops,
             "sequence":caseSensitive,
-            "introns":introns,
             "introns":introns,
             "coding_length":coding_length,
             "coding_fraction":coding_fraction,
@@ -352,9 +365,13 @@ def stat(seq, verbose=False):
    results['V1']     = 0.0
    results['Y1']     = 0.0
    results['W1']     = 0.0
+
+   # Count the number of occurences of each base molecule
+   # Ignore sequence elements not in ACGTacgt.
    for x in seq['sequence']:
-       if (not (x == 'n') and not (x in 'rwyslkm')):
-         results[x] = results[x] + 1
+       if x in 'ACGTacgt':
+          results[x] = results[x] + 1
+          
    results['A'] = results['A'] / seq['coding_length']
    results['C'] = results['C'] / seq['coding_length']
    results['G'] = results['G'] / seq['coding_length']
@@ -363,9 +380,11 @@ def stat(seq, verbose=False):
    results['c'] = results['c'] / seq['noncoding_length']
    results['g'] = results['g'] / seq['noncoding_length']
    results['t'] = results['t'] / seq['noncoding_length']
-   for x in myflatten(seq['amino_acids']):
+
+   amino_acid_string = myflatten(seq['amino_acids'])
+   for x in amino_acid_string:
        key = x + "1"
-       results[key] = results[key] + (1 / len(seq['amino_acids']))
+       results[key] = results[key] + (1 / len(amino_acid_string))
    return (results)
 
 def test3(filename, dataDir = dataDir):
