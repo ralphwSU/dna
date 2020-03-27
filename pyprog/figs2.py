@@ -427,7 +427,28 @@ def s2ps2(
        x_pos = figure_left_mm - statShiftFactor_h * horiz_margin_mm
        figure_bot_mm = figure_top_mm - rows_per_page * d_mm 
        y_pos = figure_bot_mm
-       f.write("% Print percent of each coding/non-coding base molecule\n")
+
+       bar_height_mm = 7
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       text = "(A)"
+       f.write(text + " rshow\n\n")
+
+       y_pos = y_pos + bar_height_mm
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       text = "(C)"
+       f.write(text + " rshow\n\n")
+
+       y_pos = y_pos + bar_height_mm
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       text = "(G)"
+       f.write(text + " rshow\n\n")              
+
+       y_pos = y_pos + bar_height_mm
+       f.write(F(x_pos) + " mm " + F(y_pos) + " mm moveto\n")
+       text = "(T)"
+       f.write(text + " rshow\n\n")              
+       
+       """f.write("% Print percent of each coding/non-coding base molecule\n")
        f.write("0.3  0.3  0.3  setrgbcolor\n")
        text = "(A: " + F3(stats['A']) + ")"
        f.write(F(x_pos) + " mm " + F(y_pos) + " mm ")
@@ -565,7 +586,7 @@ def s2ps2(
        f.write(F(x_pos - legendBoxSize_mm) + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")
        f.write(F(x_pos)                    + " mm " + F(y_pos + legendBoxSize_mm) + " mm lineto\n")       
        f.write("closepath\n")
-       f.write("fill\n")        
+       f.write("fill\n")        """
        
        # Write the coding fraction
        f.write("% Write coding and noncoding fractions\n")
